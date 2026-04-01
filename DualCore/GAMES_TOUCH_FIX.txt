@@ -1,0 +1,37 @@
+GAMES/TRAINING TOUCH FIX
+
+In apps.cpp, fix handleGamesMenuTouch():
+
+OLD CODE (broken):
+void handleGamesMenuTouch(TouchGesture& gesture) {
+  // Empty or wrong coordinates
+}
+
+NEW CODE (fixed):
+void handleGamesMenuTouch(TouchGesture& gesture) {
+  if (gesture.event != TOUCH_TAP) return;
+  
+  int x = gesture.x;
+  int y = gesture.y;
+  
+  // Character Games button (top)
+  if (y >= 100 && y <= 180 && x >= 40 && x <= 320) {
+    system_state.current_screen = SCREEN_CHARACTER_GAME;
+    initCharacterGame(GAME_LUFFY_PUNCH); // or show game selector
+    return;
+  }
+  
+  // Boss Rush button (middle)
+  if (y >= 200 && y <= 280 && x >= 40 && x <= 320) {
+    system_state.current_screen = SCREEN_BOSS_RUSH;
+    drawBossRushMenu();
+    return;
+  }
+  
+  // Training button (bottom)
+  if (y >= 300 && y <= 380 && x >= 40 && x <= 320) {
+    system_state.current_screen = SCREEN_TRAINING;
+    drawTrainingScreen();
+    return;
+  }
+}
