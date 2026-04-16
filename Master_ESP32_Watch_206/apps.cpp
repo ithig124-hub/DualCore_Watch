@@ -533,6 +533,9 @@ void handlePDFReaderTouch(TouchGesture& gesture) {
 // SETTINGS
 // =============================================================================
 
+// Track if About sub-screen is active
+static bool aboutScreenActive = false;
+
 void initSettingsApp() {
   system_state.current_screen = SCREEN_SETTINGS;
   rebirth_state = REBIRTH_IDLE;
@@ -614,9 +617,6 @@ void drawSettingsApp() {
   
   drawSwipeIndicator();
 }
-
-// Track if About sub-screen is active
-static bool aboutScreenActive = false;
 
 void handleSettingsTouch(TouchGesture& gesture) {
   if (gesture.event != TOUCH_TAP) return;
