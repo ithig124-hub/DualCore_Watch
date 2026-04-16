@@ -1,0 +1,106 @@
+IMPROVED GACHA CARD SCAN ANIMATION
+
+Replace drawGachaCardReveal() in gacha.cpp:
+
+void drawGachaCardReveal(GachaCard& card) {
+  ThemeColors* theme = getCurrentTheme();
+  
+  // Animated card flip (frame-by-frame)
+  for (int frame = 0; frame < 20; frame++) {
+    gfx->fillScreen(RGB565(8, 8, 12));
+    
+    // Particle effects
+    for (int i = 0; i < 30; i++) {
+      int px = random(0, LCD_WIDTH);
+      int py = random(0, LCD_HEIGHT);
+      uint16_t pcolor = (card.rarity == RARITY_LEGENDARY) ? COLOR_GOLD : 
+                        (card.rarity == RARITY_EPIC) ? COLOR_PURPLE : 
+                        (card.rarity == RARITY_RARE) ? COLOR_BLUE : COLOR_WHITE;
+      gfx->fillCircle(px, py, 2, pcolor);
+    }
+    
+    // Card background with rarity gradient
+    int cardX = 60;
+    int cardY = 100;
+    int cardW = 240;
+    int cardH = 320;
+    
+    // Rarity glow
+    uint16_t glowColor;
+    switch(card.rarity) {
+      case RARITY_LEGENDARY: glowColor = RGB565(255, 215, 0); break;  // Gold
+      case RARITY_EPIC:      glowColor = RGB565(160, 32, 240); break;  // Purple
+      case RARITY_RARE:      glowColor = RGB565(30, 144, 255); break;  // Blue
+      default:               glowColor = RGB565(150, 150, 150); break; // Gray
+    }
+    
+    // Animated glow rings
+    int glowRadius = 10 + (frame * 2);
+    for (int r = 0; r < 5; r++) {
+      gfx->drawRoundRect(cardX - r, cardY - r, cardW + r*2, cardH + r*2, 15, glowColor);
+    }
+    
+    // Card face
+    gfx->fillRoundRect(cardX, cardY, cardW, cardH, 15, RGB565(20, 22, 30));
+    gfx->drawRoundRect(cardX, cardY, cardW, cardH, 15, glowColor);
+    
+    // Character sprite (if available)
+    // drawCharacterSprite(cardX + cardW/2, cardY + 100, card.character);
+    
+    // Character name
+    gfx->setTextSize(2);
+    gfx->setTextColor(COLOR_WHITE);
+    int nameLen = strlen(card.name) * 12;
+    gfx->setCursor(cardX + (cardW - nameLen)/2, cardY + 220);
+    gfx->print(card.name);
+    
+    // Rarity stars
+    int starY = cardY + 250;
+    int starSpacing = 30;
+    int startX = cardX + (cardW - (card.rarity * starSpacing))/2;
+    for (int s = 0; s < card.rarity; s++) {
+      drawStar(startX + s * starSpacing, starY, 12, COLOR_GOLD);
+    }
+    
+    // Power level
+    gfx->setTextSize(3);
+    gfx->setTextColor(glowColor);
+    char powerStr[10];
+    sprintf(powerStr, "%d", card.power);
+    int powerLen = strlen(powerStr) * 18;
+    gfx->setCursor(cardX + (cardW - powerLen)/2, cardY + 280);
+    gfx->print(powerStr);
+    gfx->setTextSize(1);
+    gfx->setCursor(cardX + cardW/2 - 18, cardY + 310);
+    gfx->print("POWER");
+    
+    delay(50);  // Animation delay
+  }
+  
+  // Final state with "TAP TO CONTINUE"
+  gfx->setTextSize(1);
+  gfx->setTextColor(RGB565(150, 150, 160));
+  gfx->setCursor(LCD_WIDTH/2 - 54, 440);
+  gfx->print("TAP TO CONTINUE");
+  
+  gacha_state = GACHA_STATE_RESULT;
+}
+
+void drawStar(int x, int y, int size, uint16_t color) {
+  // 5-pointed star
+  for (int i = 0; i < 5; i++) {
+    float angle1 = i * 72 * PI / 180.0 - PI/2;
+    float angle2 = (i + 0.5) * 72 * PI / 180.0 - PI/2;
+    float angle3 = (i + 1) * 72 * PI / 180.0 - PI/2;
+    
+    int x1 = x + cos(angle1) * size;
+    int y1 = y + sin(angle1) * size;
+    int x2 = x + cos(angle2) * (size * 0.4);
+    int y2 = y + sin(angle2) * (size * 0.4);
+    int x3 = x + cos(angle3) * size;
+    int y3 = y + sin(angle3) * size;
+    
+    gfx->fillTriangle(x, y, x1, y1, x2, y2, color);
+    gfx->fillTriangle(x, y, x2, y2, x3, y3, color);
+  }
+}

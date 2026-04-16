@@ -1,0 +1,35 @@
+GACHA TAP TO CONTINUE FIX
+
+In gacha.cpp, find handleGachaTouch() function and fix the continue button detection:
+
+OLD CODE (broken):
+if (gesture.event == TOUCH_TAP && gesture.y > 400) {
+  // Continue button area - might be too vague
+}
+
+NEW CODE (fixed):
+if (gesture.event == TOUCH_TAP) {
+  // Tap to continue - check if in result screen
+  if (gacha_state == GACHA_STATE_RESULT) {
+    // Save the pulled card FIRST
+    saveGachaData();
+    
+    // Then return to gacha menu
+    gacha_state = GACHA_STATE_MENU;
+    drawGachaScreen();
+    return;
+  }
+  
+  // Other tap handling...
+}
+
+ALSO ADD save function:
+void saveGachaData() {
+  Preferences prefs;
+  prefs.begin("gacha", false);
+  prefs.putUInt("total_pulls", total_gacha_pulls);
+  prefs.putUInt("currency", gacha_currency);
+  // Save last pulled card to collection
+  addCardToCollection(last_pulled_card);
+  prefs.end();
+}
