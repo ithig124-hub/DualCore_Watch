@@ -1,0 +1,10 @@
+# ESP32-S3 Dual Boot Partition Table
+# For use with ESP32_Watch_206 and S3_MiniOS_206
+#
+# Name,      Type, SubType, Offset,   Size,     Flags
+nvs,        data, nvs,     0x9000,   0x6000,
+otadata,    data, ota,     0xf000,   0x2000,
+app0,       app,  ota_0,   0x10000,  0x380000,
+app1,       app,  ota_1,   0x390000, 0x380000,
+spiffs,     data, spiffs,  0x710000, 0x80000,
+fat,        data, fat,     0x790000, 0x670000,
