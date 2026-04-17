@@ -26,6 +26,7 @@
 #include <esp_task_wdt.h>
 #include <Preferences.h>
 #include <esp_system.h>
+#include <nvs_flash.h>
 
 #include "config.h"
 #include "display.h"

@@ -22,6 +22,7 @@
 #include "ochobot.h"
 #include "navigation.h"
 #include "companion.h"
+#include <Preferences.h>  // Real ESP32 NVS for theme persistence
 
 extern Arduino_CO5300 *gfx;
 extern SystemState system_state;
@@ -3968,75 +3969,81 @@ void drawThemeSelector() {
 }
 
 // =============================================================================
-// DEDICATED THEME SAVE - Uses its own FusionData ("theme_cfg")
-// Completely isolated from saveAllGameData() / "watchgame" namespace.
-// Nothing else in the firmware reads or writes "theme_cfg".
+// DEDICATED THEME SAVE - Writes to BOTH NVS and SD card for reliability.
+// NVS = fast, primary. SD = backup in case NVS gets wiped (rebirth).
 // =============================================================================
 void saveThemeToNVS(ThemeType theme) {
   extern void feedWatchdog();
   
-  SDPreferences tp;
-  
-  // --- Write to dedicated namespace ---
-  bool ok = tp.begin("theme_cfg", false);
-  if (ok) {
-    size_t written = tp.putInt("t", (int)theme);
-    tp.end();
-    Serial.printf("[THEME-SD] WRITE theme=%d to 'theme_cfg' (bytes=%u)\n", (int)theme, written);
+  // --- Write to real ESP32 NVS ---
+  Preferences nvsPrefs;
+  bool nvsOk = nvsPrefs.begin("theme_cfg", false);
+  if (nvsOk) {
+    nvsPrefs.putInt("t", (int)theme);
+    nvsPrefs.end();
+    Serial.printf("[THEME] NVS write: theme=%d\n", (int)theme);
   } else {
-    Serial.println("[THEME-SD] ERROR: could not open 'theme_cfg' for write!");
+    Serial.println("[THEME] NVS write FAILED");
   }
   
   feedWatchdog();
   
-  // --- Read-back verification ---
-  bool ok2 = tp.begin("theme_cfg", true);
-  if (ok2) {
-    int readback = tp.getInt("t", -999);
-    tp.end();
-    if (readback == (int)theme) {
-      Serial.printf("[THEME-SD] VERIFY OK: read back %d == %d\n", readback, (int)theme);
-    } else {
-      Serial.printf("[THEME-SD] VERIFY FAIL: read back %d, expected %d\n", readback, (int)theme);
-    }
+  // --- Also write to SD card as backup ---
+  SDPreferences sdPrefs;
+  bool sdOk = sdPrefs.begin("theme_cfg", false);
+  if (sdOk) {
+    sdPrefs.putInt("t", (int)theme);
+    sdPrefs.end();
+    Serial.printf("[THEME] SD write: theme=%d\n", (int)theme);
   } else {
-    Serial.println("[THEME-SD] ERROR: could not open 'theme_cfg' for verify read!");
+    Serial.println("[THEME] SD write FAILED");
   }
 }
 
 // =============================================================================
-// LOAD THEME FROM NVS - Called from setup() before anything else.
-// Returns the saved ThemeType, or THEME_LUFFY_GEAR5 if nothing saved yet.
+// LOAD THEME - Tries NVS first, then SD card fallback.
+// After rebirth (NVS wiped), SD backup still has the last theme.
 // =============================================================================
 ThemeType loadThemeFromNVS() {
-  SDPreferences tp;
-  ThemeType result = THEME_LUFFY_GEAR5;  // default
+  ThemeType result = THEME_LUFFY_GEAR5;
   
-  bool ok = tp.begin("theme_cfg", true);  // read-only
-  if (ok) {
-    int val = tp.getInt("t", (int)THEME_LUFFY_GEAR5);
-    tp.end();
-    
-    // Validate range
+  // --- Try NVS first ---
+  Preferences nvsPrefs;
+  if (nvsPrefs.begin("theme_cfg", true)) {
+    int val = nvsPrefs.getInt("t", -1);
+    nvsPrefs.end();
     if (val >= 0 && val < THEME_COUNT) {
       result = (ThemeType)val;
-    }
-    Serial.printf("[THEME-SD] LOAD theme=%d from 'theme_cfg'\n", (int)result);
-  } else {
-    // Namespace doesn't exist yet (first boot) — fall back to "watchgame"
-    bool ok2 = tp.begin("watchgame", true);
-    if (ok2) {
-      int val = tp.getInt("theme", (int)THEME_LUFFY_GEAR5);
-      tp.end();
-      if (val >= 0 && val < THEME_COUNT) {
-        result = (ThemeType)val;
-      }
-      Serial.printf("[THEME-SD] LOAD theme=%d from 'watchgame' (fallback)\n", (int)result);
-    } else {
-      Serial.println("[THEME-SD] No saved theme found — using default Luffy");
+      Serial.printf("[THEME] Loaded from NVS: %d\n", (int)result);
+      return result;
     }
   }
   
+  // --- NVS empty/failed, try SD card ---
+  SDPreferences sdPrefs;
+  if (sdPrefs.begin("theme_cfg", true)) {
+    int val = sdPrefs.getInt("t", -1);
+    sdPrefs.end();
+    if (val >= 0 && val < THEME_COUNT) {
+      result = (ThemeType)val;
+      Serial.printf("[THEME] Loaded from SD fallback: %d\n", (int)result);
+      return result;
+    }
+  }
+  
+  // --- Last resort: try SD "watchgame" ---
+  SDPreferences wgPrefs;
+  if (wgPrefs.begin("watchgame", true)) {
+    int val = wgPrefs.getInt("theme", -1);
+    wgPrefs.end();
+    if (val >= 0 && val < THEME_COUNT) {
+      result = (ThemeType)val;
+      Serial.printf("[THEME] Loaded from SD watchgame: %d\n", (int)result);
+      return result;
+    }
+  }
+  
+  Serial.println("[THEME] No saved theme found — default Luffy");
   return result;
 }
 
@@ -4110,9 +4117,8 @@ static void applyThemeAndReboot(ThemeType newTheme) {
   feedWatchdog();
   
   // ---------------------------------------------------------------
-  // STEP 3 — Persist new theme to dedicated FusionData.
-  //          Includes write + read-back verification.
-  //          After this line, the theme is crash-safe.
+  // STEP 3 — Persist new theme to BOTH NVS and SD card.
+  //          saveThemeToNVS() now writes to both for reliability.
   // ---------------------------------------------------------------
   saveThemeToNVS(newTheme);
   feedWatchdog();
@@ -4141,9 +4147,9 @@ static void applyThemeAndReboot(ThemeType newTheme) {
   saveAllGameData();
   feedWatchdog();
   
-  Serial.println("[THEME] Rebooting...");
+  Serial.printf("[THEME] Theme %d saved to NVS+SD. Rebooting...\n", (int)newTheme);
   Serial.flush();
-  delay(200);
+  delay(500);  // Extra time for NVS and SD writes to fully commit
   feedWatchdog();
   ESP.restart();
 }

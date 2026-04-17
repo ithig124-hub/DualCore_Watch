@@ -848,8 +848,15 @@ void executeRebirth() {
     p.begin(namespaces_to_clear[i], false);
     p.clear();
     p.end();
-    Serial.printf("[REBIRTH] Cleared namespace: %s\n", namespaces_to_clear[i]);
+    Serial.printf("[REBIRTH] Cleared SD namespace: %s\n", namespaces_to_clear[i]);
   }
+
+  // WIPE ALL NVS MEMORY - Full factory reset of ESP32 flash storage
+  // On next boot, theme restores from SD backup, game data loads from SD
+  Serial.println("[REBIRTH] Erasing ALL NVS memory...");
+  nvs_flash_erase();
+  nvs_flash_init();
+  Serial.println("[REBIRTH] NVS erased and re-initialized");
 
   // Show completion
   gfx->fillScreen(RGB565(0, 0, 0));

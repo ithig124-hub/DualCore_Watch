@@ -70,10 +70,8 @@ void recordInteraction() {
     power_manager.current_delay = FPS_ACTIVE;
     power_manager.animations_active = true;
     
-    // Restore brightness
-    if (screenOn) {
-      gfx->setBrightness(power_manager.original_brightness);
-    }
+    // NOTE: Brightness is NOT restored here — it stays at whatever
+    // the user set in Settings. Only Settings can change brightness.
     
     // Restore CPU frequency
     setCpuFrequencyMhz(CPU_FREQ_ACTIVE);
@@ -103,20 +101,15 @@ void updatePowerState() {
   }
   
   if (system_state.power_saver_enabled) {
-    // POWER SAVER: reduce brightness, CPU, animation rate
+    // POWER SAVER: reduce CPU and animation rate ONLY
+    // Brightness stays at whatever the user set in Settings — battery saver
+    // cannot override brightness. Only Settings can change it.
     power_manager.current_state = POWER_IDLE;
     power_manager.current_delay = FPS_IDLE;  // 30 FPS instead of 60
     power_manager.sensor_poll_interval = SENSOR_POLL_IDLE;
     power_manager.animations_active = false;  // Disable watchface animations
     
-    // Dim brightness to 50% of user setting
-    if (screenOn) {
-      int dimBrightness = power_manager.original_brightness / 2;
-      if (dimBrightness < 30) dimBrightness = 30;  // Minimum visible
-      gfx->setBrightness(dimBrightness);
-    }
-    
-    // Lower CPU frequency
+    // Lower CPU frequency (saves power without touching brightness)
     setCpuFrequencyMhz(CPU_FREQ_IDLE);  // 160 MHz instead of 240
     return;
   }
@@ -168,27 +161,10 @@ void applyCPUFrequency() {
 void applyBrightnessDimming() {
   if (!screenOn) return;
   
-  int target_brightness;
-  
-  switch (power_manager.current_state) {
-    case POWER_ACTIVE:
-    case POWER_IDLE:
-      target_brightness = power_manager.original_brightness;
-      break;
-    
-    case POWER_DIMMED:
-      target_brightness = power_manager.original_brightness / 2;  // 50%
-      break;
-    
-    case POWER_MINIMAL:
-      target_brightness = (power_manager.original_brightness * 3) / 10;  // 30%
-      break;
-    
-    default:
-      target_brightness = power_manager.original_brightness;
-  }
-  
-  gfx->setBrightness(target_brightness);
+  // Brightness is ONLY changeable through Settings.
+  // No power state (including battery saver) can override it.
+  // Always use the user-set brightness.
+  gfx->setBrightness(power_manager.original_brightness);
 }
 
 // =============================================================================
@@ -235,9 +211,7 @@ void forceActiveState() {
     power_manager.animations_active = true;
     
     setCpuFrequencyMhz(CPU_FREQ_ACTIVE);
-    if (screenOn) {
-      gfx->setBrightness(power_manager.original_brightness);
-    }
+    // NOTE: Brightness is NOT changed — only Settings can change it.
   }
 }
 
@@ -282,17 +256,15 @@ void togglePowerSaver() {
   system_state.power_saver_enabled = !system_state.power_saver_enabled;
   
   if (system_state.power_saver_enabled) {
-    Serial.println("[POWER] Power Saver: ON");
+    Serial.println("[POWER] Power Saver: ON (CPU/FPS reduced, brightness unchanged)");
   } else {
-    // Restore full power
+    // Restore full CPU/FPS power — brightness stays at user-set level
     Serial.println("[POWER] Power Saver: OFF");
     power_manager.current_state = POWER_ACTIVE;
     power_manager.current_delay = FPS_ACTIVE;
     power_manager.animations_active = true;
     setCpuFrequencyMhz(CPU_FREQ_ACTIVE);
-    if (screenOn) {
-      gfx->setBrightness(power_manager.original_brightness);
-    }
+    // NOTE: Brightness is NOT touched here — only Settings can change it.
   }
 }
 
