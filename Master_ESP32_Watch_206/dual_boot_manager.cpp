@@ -5,6 +5,8 @@
  * for ESP32-S3 smartwatch dual-boot system.
  * 
  * MODIFIED: Uses SD_MMC instead of SD (SPI) to match both OS codebases
+ * UPDATED:  Added runtime double-tap detection (checkRuntimeDoubleTap)
+ *           so user can switch OS at any time, not just during boot.
  */
 
 #include "dual_boot_manager.h"
@@ -19,6 +21,7 @@ DualBootManager DualBoot;
 DualBootManager::DualBootManager() {
     memset(&config, 0, sizeof(config));
     memset(&tapState, 0, sizeof(tapState));
+    memset(&rtState, 0, sizeof(rtState));
     
     // Default OS names
     strcpy(config.os_names[OS_FUSION_WATCH], "Fusion Watch OS");
@@ -48,29 +51,34 @@ bool DualBootManager::begin() {
         Serial.println("[DUAL-BOOT] Internal FAT mounted at /fat");
     }
     
-    // Load boot configuration - if not found, DEFAULT TO MINIOS
+    // Load boot configuration
     if (!loadBootConfig()) {
-        Serial.println("[DUAL-BOOT] No boot.txt found - defaulting to MiniOS");
-        Serial.println("[DUAL-BOOT] Auto-creating boot.txt...");
+        Serial.println("[DUAL-BOOT] No boot.txt found - creating default config");
         
-        // DEFAULT TO MINIOS (OS 1) when no config exists
-        config.current_os = OS_MINI_OS;
-        config.next_os = OS_MINI_OS;
+        // config.current_os was already set by detectCurrentPartition()
+        config.next_os = config.current_os;
         config.boot_count = 1;
         config.pending_switch = false;
         
         // Auto-create the boot.txt file
         if (saveBootConfig()) {
-            Serial.println("[DUAL-BOOT] boot.txt auto-created at /WATCH/DUALOS/boot.txt");
+            Serial.println("[DUAL-BOOT] boot.txt auto-created");
         } else {
-            Serial.println("[DUAL-BOOT] WARNING: Could not auto-create boot.txt");
+            Serial.println("[DUAL-BOOT] WARNING: Could not auto-create boot.txt (SD may not be mounted yet)");
         }
     }
     
+    // Update boot.txt with actual running partition (in case it's stale)
+    config.current_os = config.current_os;  // Already set by detectCurrentPartition
+    config.pending_switch = false;           // We booted successfully
     config.boot_count++;
+    saveBootConfig();  // May fail if SD not mounted yet, that's OK
     
     initialized = true;
     printStatus();
+    
+    // Reset runtime tap state
+    memset(&rtState, 0, sizeof(rtState));
     
     return true;
 }
@@ -87,7 +95,6 @@ bool DualBootManager::beginSD() {
         Serial.println("[DUAL-BOOT] SD card mounted successfully via SD_MMC");
         
         // Create /WATCH/DUALOS folder if it doesn't exist
-        // (WATCH folder already exists from both OSes)
         if (!SD_MMC.exists("/WATCH")) {
             SD_MMC.mkdir("/WATCH");
         }
@@ -95,6 +102,9 @@ bool DualBootManager::beginSD() {
             SD_MMC.mkdir("/WATCH/DUALOS");
             Serial.println("[DUAL-BOOT] Created /WATCH/DUALOS folder on SD");
         }
+        
+        // Now that SD is available, save boot config (may have failed in begin())
+        saveBootConfig();
         
         return true;
     }
@@ -104,19 +114,10 @@ bool DualBootManager::beginSD() {
 }
 
 // =============================================================================
-// DOUBLE-TAP DETECTION
+// BOOT-TIME DOUBLE-TAP DETECTION (blocking, runs in setup())
 // =============================================================================
 
 bool DualBootManager::checkDoubleTapBoot() {
-    /*
-     * Call this EARLY in setup() to detect double-tap on boot button.
-     * 
-     * Detection window: 500ms from power-on
-     * If user double-taps BOOT button within this window, switch OS.
-     * 
-     * Returns true if OS switch was triggered.
-     */
-    
     Serial.println("[DUAL-BOOT] Checking for double-tap boot switch...");
     Serial.println("[DUAL-BOOT] Double-tap BOOT button within 500ms to switch OS");
     
@@ -125,37 +126,31 @@ bool DualBootManager::checkDoubleTapBoot() {
     unsigned long start_time = millis();
     unsigned long window_end = start_time + DOUBLE_TAP_WINDOW_MS;
     
-    // Detection loop
     while (millis() < window_end) {
         if (detectTap()) {
             Serial.println("[DUAL-BOOT] Tap detected!");
             
             if (!tapState.first_tap_detected) {
-                // First tap
                 tapState.first_tap_detected = true;
                 tapState.first_tap_time = millis();
                 Serial.println("[DUAL-BOOT] First tap - waiting for second...");
             } else {
-                // Second tap - check timing
                 unsigned long tap_interval = millis() - tapState.first_tap_time;
                 
                 if (tap_interval < DOUBLE_TAP_WINDOW_MS) {
-                    // Valid double-tap!
                     Serial.println("[DUAL-BOOT] *** DOUBLE-TAP DETECTED! ***");
                     tapState.switch_triggered = true;
                     
-                    // Perform OS switch
                     if (switchToOtherOS()) {
                         Serial.println("[DUAL-BOOT] OS switch scheduled - rebooting...");
-                        delay(100);  // Brief delay for serial output
+                        delay(100);
                         triggerReboot();
-                        return true;  // Won't reach here due to reboot
+                        return true;
                     } else {
                         Serial.println("[DUAL-BOOT] OS switch failed!");
                         return false;
                     }
                 } else {
-                    // Taps too far apart - reset
                     Serial.println("[DUAL-BOOT] Taps too far apart, resetting");
                     tapState.first_tap_detected = true;
                     tapState.first_tap_time = millis();
@@ -163,7 +158,7 @@ bool DualBootManager::checkDoubleTapBoot() {
             }
         }
         
-        delay(10);  // Poll rate
+        delay(10);
     }
     
     Serial.println("[DUAL-BOOT] No double-tap detected, continuing normal boot");
@@ -171,23 +166,19 @@ bool DualBootManager::checkDoubleTapBoot() {
 }
 
 bool DualBootManager::detectTap() {
-    // Read button state (LOW when pressed due to pullup)
     bool pressed = (digitalRead(BOOT_BUTTON_GPIO) == LOW);
     
     if (pressed && !tapState.button_was_pressed) {
-        // Button just pressed
         tapState.button_was_pressed = true;
         tapState.button_press_time = millis();
-        return false;  // Wait for release
+        return false;
     }
     else if (!pressed && tapState.button_was_pressed) {
-        // Button just released
         unsigned long hold_time = millis() - tapState.button_press_time;
         tapState.button_was_pressed = false;
         
-        // Check if it was a valid tap (not too long)
         if (hold_time >= TAP_DEBOUNCE_MS && hold_time < 1000) {
-            return true;  // Valid tap
+            return true;
         }
     }
     
@@ -203,6 +194,65 @@ void DualBootManager::resetTapState() {
 }
 
 // =============================================================================
+// RUNTIME DOUBLE-TAP DETECTION (non-blocking, call from loop())
+// =============================================================================
+
+void DualBootManager::checkRuntimeDoubleTap() {
+    if (!initialized) return;
+    
+    bool pressed = (digitalRead(BOOT_BUTTON_GPIO) == LOW);
+    unsigned long now = millis();
+    
+    // --- Detect a complete tap (press then release) ---
+    if (pressed && !rtState.button_was_pressed) {
+        // Button just pressed
+        rtState.button_was_pressed = true;
+        rtState.button_press_time = now;
+    }
+    else if (!pressed && rtState.button_was_pressed) {
+        // Button just released — check if it was a valid short tap
+        unsigned long hold_time = now - rtState.button_press_time;
+        rtState.button_was_pressed = false;
+        
+        if (hold_time >= TAP_DEBOUNCE_MS && hold_time < 1000) {
+            // Valid tap!
+            if (!rtState.first_tap_detected) {
+                // --- FIRST TAP ---
+                rtState.first_tap_detected = true;
+                rtState.first_tap_time = now;
+                Serial.println("[DUAL-BOOT] Runtime: First tap detected, waiting for second...");
+            } else {
+                // --- SECOND TAP — check if within window ---
+                unsigned long tap_interval = now - rtState.first_tap_time;
+                
+                if (tap_interval <= RUNTIME_TAP_WINDOW_MS) {
+                    // *** DOUBLE-TAP DETECTED — SWITCH OS ***
+                    Serial.println("[DUAL-BOOT] *** RUNTIME DOUBLE-TAP — SWITCHING OS! ***");
+                    
+                    if (switchToOtherOS()) {
+                        Serial.printf("[DUAL-BOOT] Switching to %s — rebooting now!\n",
+                                      getOtherOSName());
+                        delay(150);  // Brief pause for serial output
+                        triggerReboot();
+                        // Won't reach here
+                    } else {
+                        Serial.println("[DUAL-BOOT] OS switch failed! Continuing...");
+                    }
+                }
+                
+                // Reset regardless (double-tap succeeded or taps too far apart)
+                rtState.first_tap_detected = false;
+            }
+        }
+    }
+    
+    // --- Timeout: if first tap happened but second didn't come in time, reset ---
+    if (rtState.first_tap_detected && (now - rtState.first_tap_time > RUNTIME_TAP_WINDOW_MS)) {
+        rtState.first_tap_detected = false;
+    }
+}
+
+// =============================================================================
 // BOOT CONFIGURATION
 // =============================================================================
 
@@ -215,7 +265,6 @@ bool DualBootManager::saveBootConfig() {
 }
 
 bool DualBootManager::readBootTxt() {
-    // Try SD card (SD_MMC) first, then internal FAT
     File file;
     
     if (sd_available && SD_MMC.exists(BOOT_CONFIG_PATH)) {
@@ -227,19 +276,12 @@ bool DualBootManager::readBootTxt() {
         Serial.println("[DUAL-BOOT] Reading boot.txt from internal FAT");
     }
     else {
-        // No boot.txt found - will default to MiniOS
         return false;
     }
     
     if (!file) {
         return false;
     }
-    
-    // Parse boot.txt format:
-    // CURRENT_OS=0
-    // NEXT_OS=1
-    // PENDING_SWITCH=1
-    // BOOT_COUNT=5
     
     while (file.available()) {
         String line = file.readStringUntil('\n');
@@ -272,34 +314,27 @@ bool DualBootManager::readBootTxt() {
 bool DualBootManager::writeBootTxt() {
     File file;
     
-    // Prefer SD card (SD_MMC) if available
     if (sd_available) {
-        // Ensure /WATCH/DUALOS folder exists
         if (!SD_MMC.exists("/WATCH/DUALOS")) {
+            SD_MMC.mkdir("/WATCH");
             SD_MMC.mkdir("/WATCH/DUALOS");
         }
         file = SD_MMC.open(BOOT_CONFIG_PATH, FILE_WRITE);
-        Serial.println("[DUAL-BOOT] Writing boot.txt to /WATCH/DUALOS/boot.txt");
     }
     else if (fat_available) {
         file = FFat.open(BOOT_CONFIG_PATH_FAT, FILE_WRITE);
-        Serial.println("[DUAL-BOOT] Writing boot.txt to internal FAT");
     }
     else {
-        Serial.println("[DUAL-BOOT] ERROR: No storage available for boot.txt");
         return false;
     }
     
     if (!file) {
-        Serial.println("[DUAL-BOOT] ERROR: Could not open boot.txt for writing");
         return false;
     }
     
-    // Write configuration
     file.printf("# ESP32 Dual Boot Configuration\n");
-    file.printf("# Auto-generated - OK to edit\n");
-    file.printf("# Double-tap BOOT button to switch OS\n");
-    file.printf("# Default OS (when no boot.txt): MiniOS\n\n");
+    file.printf("# Auto-generated by DualBootManager\n");
+    file.printf("# Double-tap BOOT button (GPIO 0) to switch OS\n\n");
     file.printf("CURRENT_OS=%d\n", config.current_os);
     file.printf("NEXT_OS=%d\n", config.next_os);
     file.printf("PENDING_SWITCH=%d\n", config.pending_switch ? 1 : 0);
@@ -327,17 +362,17 @@ bool DualBootManager::switchToOS(uint8_t os_id) {
     Serial.printf("[DUAL-BOOT] Switching to OS %d (%s) on partition %s\n",
                   os_id, config.os_names[os_id], partition_name);
     
-    // Update boot config
+    // Update boot config BEFORE setting partition
     config.next_os = os_id;
     config.pending_switch = true;
     config.last_switch_time = millis();
     
-    // Save to boot.txt
+    // Write boot.txt so the other OS knows what happened
     if (!saveBootConfig()) {
-        Serial.println("[DUAL-BOOT] WARNING: Could not save boot config");
+        Serial.println("[DUAL-BOOT] WARNING: Could not save boot.txt (switch will still work via otadata)");
     }
     
-    // Set the boot partition
+    // Set the OTA boot partition — this is what actually controls which OS loads
     return setBootPartition(partition_name);
 }
 
@@ -355,6 +390,7 @@ bool DualBootManager::setBootPartition(const char* partition_name) {
     
     if (partition == NULL) {
         Serial.printf("[DUAL-BOOT] ERROR: Partition '%s' not found!\n", partition_name);
+        Serial.println("[DUAL-BOOT] Make sure dual_os_partitions.csv is flashed!");
         return false;
     }
     
@@ -365,8 +401,8 @@ bool DualBootManager::setBootPartition(const char* partition_name) {
         return false;
     }
     
-    Serial.printf("[DUAL-BOOT] Boot partition set to: %s (0x%08x)\n",
-                  partition_name, partition->address);
+    Serial.printf("[DUAL-BOOT] Boot partition set to: %s (0x%08x, size: 0x%08x)\n",
+                  partition_name, partition->address, partition->size);
     return true;
 }
 
@@ -386,22 +422,16 @@ void DualBootManager::detectCurrentPartition() {
         return;
     }
     
-    Serial.printf("[DUAL-BOOT] Running from partition: %s @ 0x%08x\n",
-                  running->label, running->address);
+    Serial.printf("[DUAL-BOOT] Running from partition: %s @ 0x%08x (size: 0x%08x)\n",
+                  running->label, running->address, running->size);
     
-    // Determine which OS based on partition
+    // Determine which OS based on partition label
     if (strcmp(running->label, PARTITION_OS1) == 0 || 
         strcmp(running->label, "app0") == 0 ||
         strcmp(running->label, "factory") == 0) {
         config.current_os = OS_FUSION_WATCH;
     } else {
         config.current_os = OS_MINI_OS;
-    }
-    
-    // Clear pending switch flag (we've booted successfully)
-    if (config.pending_switch) {
-        config.pending_switch = false;
-        saveBootConfig();
     }
 }
 
@@ -435,11 +465,12 @@ bool DualBootManager::isPendingSwitch() {
 
 void DualBootManager::printStatus() {
     Serial.println("\n===== DUAL BOOT STATUS =====");
-    Serial.printf("Current OS: %d (%s)\n", config.current_os, config.os_names[config.current_os]);
-    Serial.printf("Other OS:   %d (%s)\n", getOtherOS(), config.os_names[getOtherOS()]);
-    Serial.printf("Boot Count: %d\n", config.boot_count);
+    Serial.printf("Current OS:     %d (%s)\n", config.current_os, config.os_names[config.current_os]);
+    Serial.printf("Other OS:       %d (%s)\n", getOtherOS(), config.os_names[getOtherOS()]);
+    Serial.printf("Boot Count:     %d\n", config.boot_count);
     Serial.printf("Pending Switch: %s\n", config.pending_switch ? "YES" : "NO");
-    Serial.printf("SD Card: %s\n", sd_available ? "Available" : "Not mounted");
-    Serial.printf("Internal FAT: %s\n", fat_available ? "Available" : "Not mounted");
+    Serial.printf("SD Card:        %s\n", sd_available ? "Available" : "Not mounted");
+    Serial.printf("Internal FAT:   %s\n", fat_available ? "Available" : "Not mounted");
+    Serial.printf("BOOT button:    GPIO %d (double-tap to switch)\n", BOOT_BUTTON_GPIO);
     Serial.println("============================\n");
 }

@@ -619,7 +619,18 @@ void drawSettingsApp() {
 }
 
 void handleSettingsTouch(TouchGesture& gesture) {
-  if (gesture.event != TOUCH_TAP) return;
+  // FIX: Accept both TAP and RELEASE-with-small-movement as taps
+  bool isTap = (gesture.event == TOUCH_TAP);
+  if (!isTap && gesture.event == TOUCH_RELEASE) {
+    int dx = abs(gesture.end_x - gesture.start_x);
+    int dy = abs(gesture.end_y - gesture.start_y);
+    if (dx < 25 && dy < 25 && gesture.duration < 600) {
+      isTap = true;
+      gesture.x = gesture.start_x;
+      gesture.y = gesture.start_y;
+    }
+  }
+  if (!isTap) return;
   
   int x = gesture.x;
   int y = gesture.y;
@@ -653,9 +664,20 @@ void handleSettingsTouch(TouchGesture& gesture) {
     int cardY = startY + i * (cardH + cardGap);
     if (y >= cardY && y < cardY + cardH) {
       switch(i) {
-        case 0:  // Brightness - cycle
-          system_state.brightness = (system_state.brightness + 50) % 256;
-          setDisplayBrightness(system_state.brightness);
+        case 0:  // Brightness - cycle through sensible levels
+          {
+            // FIX: Cycle through clean brightness steps instead of wrapping with %256
+            const uint8_t levels[] = {50, 100, 150, 200, 255};
+            const int numLevels = 5;
+            int nextIdx = 0;
+            for (int b = 0; b < numLevels; b++) {
+              if (system_state.brightness <= levels[b]) {
+                nextIdx = (b + 1) % numLevels;
+                break;
+              }
+            }
+            setDisplayBrightness(levels[nextIdx]);
+          }
           drawSettingsApp();
           break;
         case 1:  // Theme selector

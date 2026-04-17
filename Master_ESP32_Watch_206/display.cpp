@@ -5,6 +5,7 @@
 
 #include "display.h"
 #include "config.h"
+#include "power_manager.h"
 
 lvgl_screen_t current_lvgl_screen = LVGL_SCREEN_WATCHFACE;
 lv_obj_t* screen_objects[LVGL_SCREEN_COUNT] = {nullptr};
@@ -40,6 +41,8 @@ void setDisplayBrightness(int brightness) {
   brightness = constrain(brightness, 0, 255);
   gfx->setBrightness(brightness);
   system_state.brightness = brightness;
+  // FIX: Keep power manager in sync so recordInteraction() doesn't revert brightness
+  power_manager.original_brightness = brightness;
 }
 
 int getDisplayBrightness() {

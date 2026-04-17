@@ -3,6 +3,7 @@
  * 
  * Handles:
  * - Double-tap BOOT button detection for OS switching
+ * - Runtime double-tap detection (call from loop())
  * - Reading/writing boot.txt to track which OS to load
  * - Managing the OTA partitions for dual-boot
  * 
@@ -11,6 +12,7 @@
  * - S3_MiniOS_206 (MiniOS)
  * 
  * MODIFIED: Uses SD_MMC instead of SD (SPI) to match both OS codebases
+ * UPDATED:  Added runtime double-tap detection for switching while OS is running
  */
 
 #ifndef DUAL_BOOT_MANAGER_H
@@ -32,7 +34,8 @@
 #define BOOT_BUTTON_GPIO       0
 
 // Double-tap timing (milliseconds)
-#define DOUBLE_TAP_WINDOW_MS   500    // Max time between taps
+#define DOUBLE_TAP_WINDOW_MS   2000   // 2 seconds between taps (boot-time)
+#define RUNTIME_TAP_WINDOW_MS  2000   // 2 seconds between taps (runtime)
 #define TAP_DEBOUNCE_MS        50     // Button debounce time
 #define BOOT_HOLD_TIME_MS      100    // Minimum hold time for valid tap
 
@@ -92,6 +95,10 @@ public:
     // Double-tap detection (call in setup() before other init)
     bool checkDoubleTapBoot();
     
+    // RUNTIME double-tap detection (call from loop() every iteration)
+    // Non-blocking: tracks button state across calls, triggers switch on double-tap
+    void checkRuntimeDoubleTap();
+    
     // Boot configuration
     bool loadBootConfig();
     bool saveBootConfig();
@@ -114,6 +121,7 @@ public:
 private:
     BootConfig config;
     DoubleTapState tapState;
+    DoubleTapState rtState;    // Runtime tap state (separate from boot-time)
     bool sd_available;
     bool fat_available;
     bool initialized;

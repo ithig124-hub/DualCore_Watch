@@ -719,7 +719,20 @@ void drawAppGrid4() {
 // =============================================================================
 
 void handleCurrentScreenTouch(TouchGesture& gesture) {
-    if (gesture.event != TOUCH_TAP) return;
+    // FIX: Accept both TAP and RELEASE-with-small-movement as taps
+    // On small watch screens, many taps get classified as RELEASE
+    bool isTap = (gesture.event == TOUCH_TAP);
+    if (!isTap && gesture.event == TOUCH_RELEASE) {
+        int dx = abs(gesture.end_x - gesture.start_x);
+        int dy = abs(gesture.end_y - gesture.start_y);
+        if (dx < 25 && dy < 25 && gesture.duration < 600) {
+            isTap = true;
+            // Use start position for more accurate tap location
+            gesture.x = gesture.start_x;
+            gesture.y = gesture.start_y;
+        }
+    }
+    if (!isTap) return;
 
     int x = gesture.x;
     int y = gesture.y;

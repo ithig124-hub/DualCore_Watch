@@ -15683,6 +15683,10 @@ void setup() {
 // MAIN LOOP
 // ═══════════════════════════════════════════════════════════════════════════
 void loop() {
+    // DUAL BOOT: Check for double-tap on BOOT button (GPIO 0) to switch OS
+    // Non-blocking — polls button state each loop iteration
+    DualBoot.checkRuntimeDoubleTap();
+
     // ═══ VOICE MEMO RECORDING ═══
     if (voiceMemoRecording) {
         recordVoiceSamples();

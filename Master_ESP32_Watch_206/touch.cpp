@@ -146,8 +146,8 @@ TouchGesture handleTouchInput() {
           gesture.event = (dy > 0) ? TOUCH_SWIPE_DOWN : TOUCH_SWIPE_UP;
           Serial.printf("[TOUCH] >>> SWIPE %s (dy=%d) <<<\n", dy > 0 ? "DOWN" : "UP", dy);
         }
-      } else if (duration < 400 && abs(dx) < 15 && abs(dy) < 15) {
-        // TAP - reduced movement threshold
+      } else if (duration < 500 && abs(dx) < 20 && abs(dy) < 20) {
+        // TAP - relaxed thresholds for small watch screen
         gesture.event = TOUCH_TAP;
         gesture.x = touchStartX;
         gesture.y = touchStartY;
@@ -238,7 +238,7 @@ TouchEvent recognizeGesture(int start_x, int start_y, int end_x, int end_y, unsi
     }
   }
   
-  if (duration < 400) return TOUCH_TAP;
+  if (duration < 500) return TOUCH_TAP;
   
   return TOUCH_NONE;
 }
@@ -250,7 +250,7 @@ bool isSwipeGesture(int start_x, int start_y, int end_x, int end_y) {
 }
 
 bool isTapGesture(unsigned long duration, int movement) {
-  return (duration < 400 && movement < 15);
+  return (duration < 500 && movement < 20);
 }
 
 // Calibration - not needed for FT3168, coordinates are screen pixels

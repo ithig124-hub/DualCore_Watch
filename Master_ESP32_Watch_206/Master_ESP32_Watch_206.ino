@@ -1,4 +1,4 @@
-/✅ Timeout changed: 3 seconds → 5 seconds
+//✅ Timeout changed: 3 seconds → 5 seconds
 //✅ Power button changed: GPIO 0 → GPIO 10
 //✅ Screen timeout logic: Uses simple 5-second check (bypasses power manager)
 /*
@@ -572,6 +572,10 @@ void setup() {
 void loop() {
   feedWatchdog();
   
+  // DUAL BOOT: Check for double-tap on BOOT button (GPIO 0) to switch OS
+  // Non-blocking — polls button state each loop iteration
+  DualBoot.checkRuntimeDoubleTap();
+  
   static unsigned long lastAutoSave = 0;
   if (millis() - lastAutoSave > 300000) {
     lastAutoSave = millis();
@@ -698,7 +702,7 @@ void handleTouchGesture(TouchGesture& gesture) {
   switch (system_state.current_screen) {
     case SCREEN_WATCHFACE:
     case SCREEN_APP_GRID:
-      if (gesture.event == TOUCH_TAP) {
+      if (gesture.event == TOUCH_TAP || gesture.event == TOUCH_RELEASE) {
         handleCurrentScreenTouch(gesture);
       } else if (gesture.event >= TOUCH_SWIPE_LEFT && gesture.event <= TOUCH_SWIPE_DOWN) {
         handleSwipeNavigation(gesture.dx, gesture.dy);
@@ -765,7 +769,7 @@ void handleTouchGesture(TouchGesture& gesture) {
       if (gesture.event == TOUCH_SWIPE_LEFT || gesture.event == TOUCH_SWIPE_DOWN) {
         // Allow swiping back from settings/sub-screens to app grid
         returnToAppGrid();
-      } else {
+      } else if (gesture.event == TOUCH_TAP || gesture.event == TOUCH_RELEASE) {
         handleSettingsTouch(gesture);
       }
       break;
