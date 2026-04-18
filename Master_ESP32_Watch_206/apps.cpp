@@ -682,6 +682,7 @@ void handleSettingsTouch(TouchGesture& gesture) {
           break;
         case 1:  // Theme selector
           system_state.current_screen = SCREEN_THEME_SELECTOR;
+          forceThemeSelectorRedraw();  // Ensure clean first draw
           drawThemeSelector();
           break;
         case 2:  // Edit Time

@@ -553,12 +553,19 @@ bool loadPlayerDataFromSD() {
     else if (key == "BOSSES") system_state.bosses_defeated = value;
     else if (key == "STREAK") system_state.training_streak = value;
     else if (key == "STEPS") system_state.steps_today = value;
-    else if (key == "THEME") system_state.current_theme = (ThemeType)value;
+    // --- THEME is intentionally NOT loaded here. -----------------------------
+    // The theme is loaded from real NVS ("theme_cfg" namespace) in setup()
+    // BEFORE this function runs. Loading it again from a stale SD file was
+    // silently reverting freshly-switched themes on reboot — that was the
+    // "theme switch plays the animation + reboots, but boots into the old
+    // character" bug. NVS is the single source of truth for the theme.
+    // -------------------------------------------------------------------------
+    // else if (key == "THEME") system_state.current_theme = (ThemeType)value;
     else if (key == "BRIGHTNESS") system_state.brightness = value;
   }
   
   dataFile.close();
-  Serial.println("[SD] Player data loaded");
+  Serial.println("[SD] Player data loaded (theme preserved from NVS)");
   return true;
 }
 

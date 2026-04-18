@@ -927,6 +927,7 @@ void openApp(const char* appName) {
     }
     else if (strcmp(appName, "THEMES") == 0) {
         system_state.current_screen = SCREEN_THEME_SELECTOR;
+        forceThemeSelectorRedraw();  // Ensure clean first draw
         drawThemeSelector();
     }
     else if (strcmp(appName, "COLLECT") == 0) {

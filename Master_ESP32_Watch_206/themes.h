@@ -212,6 +212,7 @@ void handleProgressionTouch(TouchGesture& gesture);
 // Theme Selector
 void drawThemeSelector();
 void handleThemeSelectorTouch(TouchGesture& gesture);
+void forceThemeSelectorRedraw();  // Force full redraw on next drawThemeSelector()
 void playThemeTransition(ThemeType theme);  // Character-specific transition animation
 
 // =============================================================================

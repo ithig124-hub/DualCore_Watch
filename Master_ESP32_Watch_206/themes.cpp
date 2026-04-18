@@ -3969,91 +3969,51 @@ void drawThemeSelector() {
 }
 
 // =============================================================================
-// DEDICATED THEME SAVE - Writes to BOTH NVS and SD card for reliability.
-// NVS = fast, primary. SD = backup in case NVS gets wiped (rebirth).
+// DEDICATED THEME SAVE - Real ESP32 NVS ONLY.
+// Writing to SD was causing theme switch to hang/fail when SD was flaky.
+// Real NVS is on-chip flash and is always available.
 // =============================================================================
 void saveThemeToNVS(ThemeType theme) {
-  extern void feedWatchdog();
-  
-  // --- Write to real ESP32 NVS ---
   Preferences nvsPrefs;
   bool nvsOk = nvsPrefs.begin("theme_cfg", false);
   if (nvsOk) {
     nvsPrefs.putInt("t", (int)theme);
     nvsPrefs.end();
-    Serial.printf("[THEME] NVS write: theme=%d\n", (int)theme);
+    Serial.printf("[THEME] NVS commit: theme=%d (%s)\n", (int)theme, getThemeName(theme));
   } else {
     Serial.println("[THEME] NVS write FAILED");
-  }
-  
-  feedWatchdog();
-  
-  // --- Also write to SD card as backup ---
-  SDPreferences sdPrefs;
-  bool sdOk = sdPrefs.begin("theme_cfg", false);
-  if (sdOk) {
-    sdPrefs.putInt("t", (int)theme);
-    sdPrefs.end();
-    Serial.printf("[THEME] SD write: theme=%d\n", (int)theme);
-  } else {
-    Serial.println("[THEME] SD write FAILED");
   }
 }
 
 // =============================================================================
-// LOAD THEME - Tries NVS first, then SD card fallback.
-// After rebirth (NVS wiped), SD backup still has the last theme.
+// LOAD THEME - Real ESP32 NVS ONLY. Fast, reliable, no SD dependency.
 // =============================================================================
 ThemeType loadThemeFromNVS() {
   ThemeType result = THEME_LUFFY_GEAR5;
   
-  // --- Try NVS first ---
   Preferences nvsPrefs;
   if (nvsPrefs.begin("theme_cfg", true)) {
     int val = nvsPrefs.getInt("t", -1);
     nvsPrefs.end();
     if (val >= 0 && val < THEME_COUNT) {
       result = (ThemeType)val;
-      Serial.printf("[THEME] Loaded from NVS: %d\n", (int)result);
+      Serial.printf("[THEME] Loaded from NVS: %d (%s)\n", (int)result, getThemeName(result));
       return result;
     }
   }
   
-  // --- NVS empty/failed, try SD card ---
-  SDPreferences sdPrefs;
-  if (sdPrefs.begin("theme_cfg", true)) {
-    int val = sdPrefs.getInt("t", -1);
-    sdPrefs.end();
-    if (val >= 0 && val < THEME_COUNT) {
-      result = (ThemeType)val;
-      Serial.printf("[THEME] Loaded from SD fallback: %d\n", (int)result);
-      return result;
-    }
-  }
-  
-  // --- Last resort: try SD "watchgame" ---
-  SDPreferences wgPrefs;
-  if (wgPrefs.begin("watchgame", true)) {
-    int val = wgPrefs.getInt("theme", -1);
-    wgPrefs.end();
-    if (val >= 0 && val < THEME_COUNT) {
-      result = (ThemeType)val;
-      Serial.printf("[THEME] Loaded from SD watchgame: %d\n", (int)result);
-      return result;
-    }
-  }
-  
-  Serial.println("[THEME] No saved theme found — default Luffy");
+  Serial.println("[THEME] No saved theme in NVS - default Luffy");
   return result;
 }
 
 // =============================================================================
 // Save ONLY per-character data (gems, level, etc.) WITHOUT touching "theme" key.
+// Wrapped in try-style guards so missing SD never blocks the theme switch.
 // =============================================================================
 static void savePerThemeDataOnly() {
   SDPreferences prefs;
   if (!prefs.begin("watchgame", false)) {
-    Serial.println("[THEME] ERROR: Failed to open FusionData for per-theme save");
+    Serial.println("[THEME] Skipping per-theme save (SD not ready)");
     return;
   }
   
@@ -4086,71 +4046,72 @@ static void savePerThemeDataOnly() {
   
   prefs.end();
   
-  Serial.printf("[THEME] Per-theme data saved for theme %d (theme key untouched)\n", t);
+  Serial.printf("[THEME] Per-theme data saved for theme %d\n", t);
 }
 
 // =============================================================================
-// Full theme switch + save + reboot (BULLETPROOF version)
+// BULLETPROOF THEME SWITCH + SAVE + REBOOT
 //
-// Strategy:
-//   - Theme is saved to its OWN FusionData ("theme_cfg") that nothing
-//     else in the firmware reads or writes.
-//   - saveAllGameData() also writes the theme to "watchgame", but the boot
-//     code reads "theme_cfg" FIRST, so even if "watchgame" has stale data,
-//     the correct theme is loaded.
-//   - feedWatchdog() called throughout to prevent WDT resets.
+// Fixed flow (the old one was hanging because SD operations before the NVS
+// commit could block and the reboot never happened):
+//
+//   1. Play a SHORT visual "switching" flash so the user gets instant
+//      feedback the tap was registered.
+//   2. Save OLD character's per-theme game data to SD (best-effort, ignored
+//      on failure — critical path does NOT depend on SD).
+//   3. Commit new theme to REAL ESP32 NVS (on-chip flash). This is the only
+//      step that MUST succeed for persistence across reboot.
+//   4. Play the character-specific transition animation (fun visual).
+//   5. Small delay to guarantee the NVS write has flushed.
+//   6. ESP.restart() — the firmware boots back up, reads the theme from NVS
+//      in setup(), and every screen (watchface, storyline, stats, companion,
+//      apps) is initialised with the NEW character automatically.
 // =============================================================================
 static void applyThemeAndReboot(ThemeType newTheme) {
-  extern void saveAllGameData();
   extern void feedWatchdog();
   
-  // ---------------------------------------------------------------
-  // STEP 1 — Save old character's per-theme data (no "theme" key).
-  // ---------------------------------------------------------------
+  // Validate range so a bad tap never stores garbage.
+  if ((int)newTheme < 0 || (int)newTheme >= THEME_COUNT) {
+    Serial.printf("[THEME] Invalid theme %d - aborting switch\n", (int)newTheme);
+    return;
+  }
+  
+  Serial.printf("[THEME] === SWITCHING to %s (%d) ===\n",
+                getThemeName(newTheme), (int)newTheme);
+  
+  // STEP 1 — Instant visual feedback (tap was registered).
+  gfx->fillScreen(COLOR_BLACK);
+  gfx->setTextColor(COLOR_WHITE);
+  gfx->setTextSize(2);
+  gfx->setCursor(LCD_WIDTH / 2 - 48, LCD_HEIGHT / 2 - 8);
+  gfx->print("SWITCHING...");
+  feedWatchdog();
+  
+  // STEP 2 — Save OLD character's per-theme data (best-effort).
   savePerThemeDataOnly();
   feedWatchdog();
   
-  // ---------------------------------------------------------------
-  // STEP 2 — Switch theme in RAM.
-  // ---------------------------------------------------------------
-  setTheme(newTheme);
-  feedWatchdog();
-  
-  // ---------------------------------------------------------------
-  // STEP 3 — Persist new theme to BOTH NVS and SD card.
-  //          saveThemeToNVS() now writes to both for reliability.
-  // ---------------------------------------------------------------
+  // STEP 3 — Commit new theme to REAL NVS. This is the critical step.
   saveThemeToNVS(newTheme);
   feedWatchdog();
   
-  // ---------------------------------------------------------------
-  // STEP 4 — Play the transition animation (purely visual).
-  // ---------------------------------------------------------------
+  // Also update RAM so the transition animation uses the new palette.
+  setTheme(newTheme);
+  feedWatchdog();
+  
+  // STEP 4 — Play character-specific transition animation.
   playThemeTransition(newTheme);
   feedWatchdog();
   
-  // ---------------------------------------------------------------
-  // STEP 5 — Load new character XP data.
-  // ---------------------------------------------------------------
-  loadXPDataForTheme(newTheme);
-  
-  CharacterXPData* char_xp = getCurrentCharacterXP();
-  if (char_xp) {
-    system_state.player_level = char_xp->level;
-    system_state.player_xp = char_xp->xp;
-  }
-  feedWatchdog();
-  
-  // ---------------------------------------------------------------
-  // STEP 6 — Full save (system_state has new theme now).
-  // ---------------------------------------------------------------
-  saveAllGameData();
-  feedWatchdog();
-  
-  Serial.printf("[THEME] Theme %d saved to NVS+SD. Rebooting...\n", (int)newTheme);
+  // STEP 5 — Guarantee NVS flush.
+  Serial.printf("[THEME] Theme %d committed to NVS — rebooting...\n",
+                (int)newTheme);
   Serial.flush();
-  delay(500);  // Extra time for NVS and SD writes to fully commit
+  delay(300);
   feedWatchdog();
+  
+  // STEP 6 — Reboot. On boot, setup() calls loadThemeFromNVS() FIRST and
+  //          every screen is reinitialised with the new character.
   ESP.restart();
 }
 
@@ -4159,6 +4120,7 @@ void handleThemeSelectorTouch(TouchGesture& gesture) {
   if (gesture.event == TOUCH_SWIPE_LEFT) {
     if (themePageState < 1) {
       themePageState++;
+      forceThemeSelectorRedraw();  // Force redraw to show new page
       drawThemeSelector();
     }
     return;
@@ -4166,6 +4128,7 @@ void handleThemeSelectorTouch(TouchGesture& gesture) {
   if (gesture.event == TOUCH_SWIPE_RIGHT) {
     if (themePageState > 0) {
       themePageState--;
+      forceThemeSelectorRedraw();  // Force redraw to show new page
       drawThemeSelector();
     }
     return;
@@ -4175,12 +4138,25 @@ void handleThemeSelectorTouch(TouchGesture& gesture) {
   
   int x = gesture.x, y = gesture.y;
   
-  // Theme selection - tap on theme cards
+  // NOTE: Card geometry MUST match drawThemeSelector() exactly.
+  //   Card size:  155 x 85
+  //   Page 0 layout: 2 columns x 3 rows, row spacing 100, top y = 52
+  //   Page 1 layout: same, plus 5th card centered on row 2
+  //
+  // The previous version used row spacing 105 for hit-testing while
+  // drawing used 100. That offset caused taps on the lower rows to miss
+  // every card — so "nothing switched". Fixed here to use 100.
+  const int CARD_W = 155;
+  const int CARD_H = 85;
+  const int ROW_SPACING = 100;
+  const int TOP_Y = 52;
+  
   if (themePageState == 0) {
     for (int i = 0; i < 6; i++) {
       int tx = (i % 2) * 170 + 15;
-      int ty = (i / 2) * 105 + 52;
-      if (x >= tx && x < tx + 155 && y >= ty && y < ty + 90) {
+      int ty = (i / 2) * ROW_SPACING + TOP_Y;
+      if (x >= tx && x < tx + CARD_W && y >= ty && y < ty + CARD_H) {
+        Serial.printf("[THEME] Tap card %d on page 0\n", i);
         applyThemeAndReboot((ThemeType)i);
         return;
       }
@@ -4192,19 +4168,23 @@ void handleThemeSelectorTouch(TouchGesture& gesture) {
       int col = i % 2;
       int row = i / 2;
       int tx = col * 170 + 15;
-      int ty = row * 105 + 52;
+      int ty = row * ROW_SPACING + TOP_Y;
       
       if (i == 4) {
-        tx = (LCD_WIDTH - 155) / 2;
-        ty = 2 * 105 + 52;
+        tx = (LCD_WIDTH - CARD_W) / 2;
+        ty = 2 * ROW_SPACING + TOP_Y;
       }
       
-      if (x >= tx && x < tx + 155 && y >= ty && y < ty + 90) {
+      if (x >= tx && x < tx + CARD_W && y >= ty && y < ty + CARD_H) {
+        Serial.printf("[THEME] Tap card %d on page 1 -> theme %d\n", i, (int)types[i]);
         applyThemeAndReboot(types[i]);
         return;
       }
     }
   }
+  
+  Serial.printf("[THEME] Tap at (%d,%d) did not hit any card on page %d\n",
+                x, y, themePageState);
 }
 
 
