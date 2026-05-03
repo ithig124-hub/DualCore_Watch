@@ -575,7 +575,8 @@ void loop() {
   
   // DUAL BOOT: Check for double-tap on BOOT button (GPIO 0) to switch OS
   // Non-blocking — polls button state each loop iteration
-  DualBoot.checkRuntimeDoubleTap();
+  DualBoot.checkAllTriggers();
+
   
   static unsigned long lastAutoSave = 0;
   if (millis() - lastAutoSave > 300000) {

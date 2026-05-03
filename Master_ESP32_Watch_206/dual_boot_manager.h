@@ -1,18 +1,21 @@
 /*
- * dual_boot_manager.h - Dual Boot Manager for ESP32-S3 Smartwatch
+ * dual_boot_manager.h - FIXED Dual Boot Manager for ESP32-S3 Smartwatch
  * 
- * Handles:
- * - Double-tap BOOT button detection for OS switching
- * - Runtime double-tap detection (call from loop())
- * - Reading/writing boot.txt to track which OS to load
- * - Managing the OTA partitions for dual-boot
- * 
+ * FIXES IN THIS VERSION:
+ * - Proper GPIO 0 initialization for ESP32-S3 (needs explicit pullup)
+ * - Added visual feedback on screen for button presses
+ * - Added Power button (GPIO 10) as alternative trigger (triple-tap)
+ * - Extensive debug logging to diagnose issues
+ * - Handles ESP32-S3 strapping pin behavior
+ *
+ * TRIGGER OPTIONS:
+ * 1. Double-tap BOOT button (GPIO 0) - 2 taps within 2 seconds
+ * 2. Triple-tap Power button (GPIO 10) - 3 taps within 3 seconds (fallback)
+ * 3. Long-press Power button (3 seconds) - alternative trigger
+ *
  * Compatible with:
  * - ESP32_Watch_206 (Fusion OS)
  * - S3_MiniOS_206 (MiniOS)
- * 
- * MODIFIED: Uses SD_MMC instead of SD (SPI) to match both OS codebases
- * UPDATED:  Added runtime double-tap detection for switching while OS is running
  */
 
 #ifndef DUAL_BOOT_MANAGER_H
@@ -27,49 +30,61 @@
 #include <FFat.h>
 
 // =============================================================================
-// CONFIGURATION
+// CONFIGURATION - ESP32-S3 SPECIFIC
 // =============================================================================
 
-// Boot button GPIO (ESP32-S3 standard BOOT button)
-#define BOOT_BUTTON_GPIO       0
+// Boot button GPIO (ESP32-S3 BOOT/STRAPPING pin)
+// NOTE: On ESP32-S3, GPIO 0 is a strapping pin - needs special handling
+#define BOOT_BUTTON_GPIO 0
+
+// Power button GPIO (alternative trigger via triple-tap or long-press)
+#define POWER_BUTTON_GPIO 10
 
 // Double-tap timing (milliseconds)
-#define DOUBLE_TAP_WINDOW_MS   2000   // 2 seconds between taps (boot-time)
-#define RUNTIME_TAP_WINDOW_MS  2000   // 2 seconds between taps (runtime)
-#define TAP_DEBOUNCE_MS        50     // Button debounce time
-#define BOOT_HOLD_TIME_MS      100    // Minimum hold time for valid tap
+#define DOUBLE_TAP_WINDOW_MS     2000   // 2 seconds between taps (boot-time)
+#define RUNTIME_TAP_WINDOW_MS    2000   // 2 seconds between taps (runtime)
+#define TAP_DEBOUNCE_MS          50     // Button debounce time
+#define BOOT_HOLD_TIME_MS        100    // Minimum hold time for valid tap
+#define LONG_PRESS_MS            3000   // 3 second long press to switch
 
-// Boot configuration file on SD card (inside existing WATCH folder)
-#define BOOT_CONFIG_PATH       "/WATCH/DUALOS/boot.txt"
-#define BOOT_CONFIG_PATH_FAT   "/boot.txt"  // If using internal FAT
+// Triple-tap for power button (alternative method)
+#define TRIPLE_TAP_WINDOW_MS     3000   // 3 seconds for 3 taps
+#define TRIPLE_TAP_COUNT         3      // Number of taps needed
 
-// Dual OS folder (inside WATCH)
-#define DUALOS_FOLDER          "/WATCH/DUALOS"
+// Boot configuration file on SD card
+#define BOOT_CONFIG_PATH         "/WATCH/DUALOS/boot.txt"
+#define BOOT_CONFIG_PATH_FAT     "/boot.txt"
+
+// Dual OS folder
+#define DUALOS_FOLDER            "/WATCH/DUALOS"
 
 // OS identifiers
-#define OS_FUSION_WATCH        0      // ESP32_Watch_206 (Fusion OS)
-#define OS_MINI_OS             1      // S3_MiniOS_206
+#define OS_FUSION_WATCH          0      // ESP32_Watch_206 (Fusion OS)
+#define OS_MINI_OS               1      // S3_MiniOS_206
 
-// Partition names matching dual_os_partitions.csv
-#define PARTITION_OS1          "app0"  // ota_0 - Fusion OS
-#define PARTITION_OS2          "app1"  // ota_1 - MiniOS
+// Partition names
+#define PARTITION_OS1            "app0"  // ota_0 - Fusion OS
+#define PARTITION_OS2            "app1"  // ota_1 - MiniOS
 
 // SD_MMC pins (Waveshare ESP32-S3-Touch-AMOLED-2.06")
-#define DUALBOOT_SDMMC_CLK    2
-#define DUALBOOT_SDMMC_CMD    1
-#define DUALBOOT_SDMMC_DATA   3
+#define DUALBOOT_SDMMC_CLK       2
+#define DUALBOOT_SDMMC_CMD       1
+#define DUALBOOT_SDMMC_DATA      3
+
+// Visual feedback (set to true to show on-screen indicators)
+#define VISUAL_FEEDBACK_ENABLED  true
 
 // =============================================================================
 // DATA STRUCTURES
 // =============================================================================
 
 struct BootConfig {
-    uint8_t current_os;           // Which OS is currently running
-    uint8_t next_os;              // Which OS to boot next (after double-tap)
-    uint8_t boot_count;           // Boot counter for debugging
-    bool pending_switch;          // True if OS switch is pending
-    uint32_t last_switch_time;    // Timestamp of last OS switch
-    char os_names[2][32];         // Human-readable OS names
+    uint8_t current_os;
+    uint8_t next_os;
+    uint8_t boot_count;
+    bool pending_switch;
+    uint32_t last_switch_time;
+    char os_names[2][32];
 };
 
 struct DoubleTapState {
@@ -78,6 +93,20 @@ struct DoubleTapState {
     bool button_was_pressed;
     unsigned long button_press_time;
     bool switch_triggered;
+};
+
+struct TripleTapState {
+    int tap_count;
+    unsigned long first_tap_time;
+    unsigned long last_tap_time;
+    bool button_was_pressed;
+    unsigned long button_press_time;
+};
+
+struct LongPressState {
+    bool button_held;
+    unsigned long press_start_time;
+    bool triggered;
 };
 
 // =============================================================================
@@ -90,14 +119,15 @@ public:
     
     // Initialization
     bool begin();
-    bool beginSD();  // Uses SD_MMC with hardcoded pins for 2.06" board
+    bool beginSD();
     
-    // Double-tap detection (call in setup() before other init)
+    // Boot-time double-tap detection (blocking, call in setup)
     bool checkDoubleTapBoot();
     
-    // RUNTIME double-tap detection (call from loop() every iteration)
-    // Non-blocking: tracks button state across calls, triggers switch on double-tap
-    void checkRuntimeDoubleTap();
+    // RUNTIME detection methods (non-blocking, call from loop)
+    void checkRuntimeDoubleTap();      // BOOT button double-tap
+    void checkPowerButtonTrigger();    // Power button triple-tap or long-press
+    void checkAllTriggers();           // Check all methods at once
     
     // Boot configuration
     bool loadBootConfig();
@@ -114,17 +144,30 @@ public:
     const char* getCurrentOSName();
     const char* getOtherOSName();
     bool isPendingSwitch();
+    bool isInitialized() { return initialized; }
     
     // Debug
     void printStatus();
+    void testButtonRead();  // Test if button can be read
+    
+    // Visual feedback callback (set by main code)
+    void setVisualFeedbackCallback(void (*callback)(const char* message, int duration_ms));
     
 private:
     BootConfig config;
-    DoubleTapState tapState;
-    DoubleTapState rtState;    // Runtime tap state (separate from boot-time)
+    DoubleTapState tapState;      // Boot-time tap state
+    DoubleTapState rtState;       // Runtime BOOT button tap state
+    TripleTapState pwrTapState;   // Power button triple-tap state
+    LongPressState pwrLongPress;  // Power button long-press state
+    
     bool sd_available;
     bool fat_available;
     bool initialized;
+    bool gpio0_working;           // Track if GPIO 0 reads work
+    
+    // Visual feedback
+    void (*visualFeedback)(const char* message, int duration_ms);
+    void showFeedback(const char* message, int duration_ms = 500);
     
     // Internal helpers
     bool readBootTxt();
@@ -133,6 +176,7 @@ private:
     bool setBootPartition(const char* partition_name);
     void resetTapState();
     bool detectTap();
+    void initGPIO();              // Proper GPIO initialization
 };
 
 // Global instance
