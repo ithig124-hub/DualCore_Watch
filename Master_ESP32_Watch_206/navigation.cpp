@@ -36,6 +36,7 @@
 //#include "rpg.h"
 #include "apps.h"
 #include "wifi_apps.h"
+#include "battery_app.h"
 #include "ui.h"
 #include "boboiboy_elements.h"
 #include "ochobot.h"
@@ -198,7 +199,7 @@ void navigateUp() {
 void navigateDown() {
     if (navState.currentMain == MAIN_APP_GRID_1 && navState.appGridPage < APP_GRID_PAGES - 1) {
         navState.appGridPage++;
-        Serial.printf("[NAV] App Grid: Page -> %d (of %d)\n", navState.appGridPage, APP_GRID_PAGES);
+        Serial.printf("[NAV] App Grid: Page -> %d (%d of %d)\n", navState.appGridPage, navState.appGridPage, APP_GRID_PAGES);
         navState.lastNavigationMs = millis();
         drawCurrentScreen();
     }
@@ -256,6 +257,9 @@ void navigateToScreen(MainScreen screen) {
         case MAIN_CHARACTER_STATS:
             system_state.current_screen = SCREEN_CHARACTER_STATS;
             break;
+        case MAIN_BATTERY:
+            system_state.current_screen = SCREEN_BATTERY;
+            break;
     }
 
     Serial.printf("[NAV] Screen changed: %d -> %d (system: %d)\n", oldScreen, screen, system_state.current_screen);
@@ -303,10 +307,10 @@ void drawCurrentScreen() {
 
         case MAIN_STEPS_TRACKER:
             if (g_force_steps_redraw) {
-                gfx->fillScreen(RGB565(2, 2, 5));
-                forceStepsCardRedraw();  // FIX: Ensure internal statics are reset
-                Serial.println("[NAV] Steps Tracker: Full screen clear done");
-                g_force_steps_redraw = false;
+               gfx->fillScreen(RGB565(2, 2, 5));
+               forceStepsCardRedraw();  // FIX: Ensure internal statics are reset
+               Serial.println("[NAV] Steps Tracker: Full screen clear done");
+               g_force_steps_redraw = false;
             }
             drawStepsCard();
             break;
@@ -320,6 +324,10 @@ void drawCurrentScreen() {
 
         case MAIN_CHARACTER_STATS:
             drawCharacterStatsScreen();
+            break;
+
+        case MAIN_BATTERY:
+            batteryAppDraw();
             break;
     }
 
@@ -487,9 +495,9 @@ void drawAppGrid1() {
 
     // Grid 1: RPG & Gaming - reorganized for best flow
     const char* apps1_normal[] = {"GACHA", "BOSS", "TRAINING", "STORY", "QUESTS", "GAMES", "CARE", "COLLECT", "FUSION"};
-    const char* apps1_boboiboy[] = {"GACHA", "BOSS", "TRAINING", "STORY", "QUESTS", "GAMES", "ELEMENTS", "COLLECT", "FUSION"};
+    const char* apps1_boboi[] = {"GACHA", "BOSS", "TRAINING", "STORY", "QUESTS", "GAMES", "ELEMENTS", "COLLECT", "FUSION"};
 
-    const char** apps1 = (system_state.current_theme == THEME_BOBOIBOY) ? apps1_boboiboy : apps1_normal;
+    const char** apps1 = (system_state.current_theme == THEME_BOBOIBOY) ? apps1_boboi : apps1_normal;
 
     int cols = 3;
     int iconW = 115;
@@ -787,11 +795,11 @@ void handleAppGridTap(int x, int y) {
 
             // Grid 1: RPG, Grid 2: Daily, Grid 3: System
             const char* apps1_normal[] = {"GACHA", "BOSS", "TRAINING", "STORY", "QUESTS", "GAMES", "CARE", "COLLECT", "FUSION"};
-            const char* apps1_boboiboy[] = {"GACHA", "BOSS", "TRAINING", "STORY", "QUESTS", "GAMES", "ELEMENTS", "COLLECT", "FUSION"};
+            const char* apps1_boboi[] = {"GACHA", "BOSS", "TRAINING", "STORY", "QUESTS", "GAMES", "ELEMENTS", "COLLECT", "FUSION"};
             const char* apps2[] = {"STEPS", "TIMER", "CALC", "SHOP", "ACHIEVE", "GALLERY", "CONVERT", "TORCH", "WEATHER"};
             const char* apps3[] = {"SETTINGS", "THEMES", "WIFI", "MUSIC", "FILES", "WALLPAPER", "BACKUP", "OTA", "ABOUT"};
 
-            const char** apps1 = (system_state.current_theme == THEME_BOBOIBOY) ? apps1_boboiboy : apps1_normal;
+            const char** apps1 = (system_state.current_theme == THEME_BOBOIBOY) ? apps1_boboi : apps1_normal;
             const char* appName;
             if (navState.appGridPage == 0) appName = apps1[i];
             else if (navState.appGridPage == 1) appName = apps2[i];
@@ -846,17 +854,17 @@ void openApp(const char* appName) {
         initTimerApp();
         drawTimerApp();
     }
-    // =========================================================================
+    // =============================================================================
     // NEW: STORY MODE APP
-    // =========================================================================
+    // =============================================================================
     else if (strcmp(appName, "STORY") == 0) {
         setCurrentStory(system_state.current_theme);
         system_state.current_screen = SCREEN_STORY_MENU;
         drawStoryMenu();
     }
-    // =========================================================================
+    // =============================================================================
     // NEW: COMPANION CARE APP
-    // =========================================================================
+    // =============================================================================
     else if (strcmp(appName, "CARE") == 0) {
         syncCompanionWithTheme();  // Make sure companion matches current theme
         enterCompanionCareMode();
@@ -1014,9 +1022,9 @@ void openApp(const char* appName) {
         initWallpaperSelector();
         drawWallpaperSelector();
     }
-    // =========================================================================
+    // =============================================================================
     // NEW APPS: POMODORO, HABITS, DUNGEON, STREAK, CRAFT
-    // =========================================================================
+    // =============================================================================
     else if (strcmp(appName, "POMODORO") == 0) {
         system_state.current_screen = SCREEN_POMODORO;
         extern void initPomodoroApp();

@@ -35,7 +35,7 @@ SDPreferences prefs;
 // FIX: External flag to force full redraw of steps card
 // This is needed because drawStepsCard() uses static vars for anti-flicker,
 // but when navigating BACK to the steps screen, the screen gets cleared
-// while the static vars still say "no redraw needed" → black screen!
+// while the static vars still say "no redraw needed" ➔ black screen!
 // =============================================================================
 static bool g_force_steps_card_redraw = true;
 
@@ -63,10 +63,10 @@ void initStepsTracker() {
 }
 
 void drawStepsCard() {
-  // ========================================
+  // ==========================================
   // RETRO ANIME STEP TRACKER - CRT STYLE (Optimized for 410x502)
   // ANTI-FLICKER: Only redraw when steps or goal changes
-  // ========================================
+  // ==========================================
   
   // ANTI-FLICKER: Track changes
   static bool needs_redraw = true;
@@ -180,8 +180,8 @@ void drawStepsCard() {
   int strLen = strlen(stepsStr) * 30;
   
   // Shadow
-  gfx->setTextColor(RGB565(20, 25, 35));
   gfx->setCursor(centerX - strLen/2 + 2, centerY - 28 + 2);
+  gfx->setTextColor(RGB565(20, 25, 35));
   gfx->print(stepsStr);
   
   // Main text - bright retro color
@@ -322,10 +322,10 @@ void drawRetroStatCard(int x, int y, int w, int h, const char* label, float valu
 }
 
 void updateStepCount() {
-  // =====================================================
+  // ==========================================
   // USE QMI8658 HARDWARE PEDOMETER - SUPER SENSITIVE MODE
   // Lowered all thresholds for maximum step detection
-  // =====================================================
+  // ==========================================
   
   static bool pedometer_initialized = false;
   static uint32_t last_hw_steps = 0;
@@ -392,8 +392,9 @@ void updateStepCount() {
     Wire.write(0x05);  // Was 0x07 (0.15s) - even faster minimum step time
     Wire.endTransmission();
     
+    // CAL2_H - time_cnt_entry (1 step to confirm) INSTANT
     Wire.beginTransmission(QMI8658_ADDR);
-    Wire.write(0x0E);  // CAL2_H - time_cnt_entry (1 step to confirm) INSTANT
+    Wire.write(0x0E);
     Wire.write(0x01);  // Was 0x02 (2 steps) - now just 1 step to start counting!
     Wire.endTransmission();
     
@@ -402,8 +403,9 @@ void updateStepCount() {
     Wire.write(0x00);
     Wire.endTransmission();
     
+    // CAL3_H - sig_count (report every 1 step) INSTANT
     Wire.beginTransmission(QMI8658_ADDR);
-    Wire.write(0x10);  // CAL3_H - sig_count (report every 1 step) INSTANT
+    Wire.write(0x10);
     Wire.write(0x01);  // Was 0x04 (every 4 steps) - now report EVERY step!
     Wire.endTransmission();
     
@@ -462,6 +464,11 @@ void updateStepCount() {
   
   // CRITICAL: Sync to system_state so UI can display steps
   system_state.steps_today = steps_data.steps_today;
+
+  // Mirror to RTC_DATA_ATTR so step count survives deep sleep (standby_mode).
+  // Zero-cost: just a 4-byte RTC RAM write, no NVS, no flash.
+  extern RTC_DATA_ATTR uint32_t standby_rtc_steps;
+  standby_rtc_steps = (uint32_t)steps_data.steps_today;
   
   // FUSION OS: XP Rewards for steps
   // Award 1 XP per 100 steps
@@ -475,7 +482,7 @@ void updateStepCount() {
   if (steps_data.steps_today >= steps_data.steps_goal && !goal_reached_today) {
     gainExperience(XP_DAILY_GOAL_BONUS, "Daily Step Goal!");
     goal_reached_today = true;
-    Serial.println("[Steps] 🎉 Daily goal reached! +50 XP bonus");
+    Serial.println("[Steps] 🎊 Daily goal reached! +50 XP bonus");
   }
   
   // Save periodically
@@ -553,7 +560,7 @@ void loadStepsData() {
 
 void handleStepsCardTouch(TouchGesture& gesture) {
   // Swipes are now handled by main navigation loop
-  // Steps is part of: Watchface → Steps → App Grid → Stats → loop
+  // Steps is part of: Watchface ➔ Steps ➔ App Grid ➔ Stats ➔ loop
   
   // Only handle tap to change goal
   if (gesture.event == TOUCH_TAP && gesture.y >= 180 && gesture.y <= 210) {

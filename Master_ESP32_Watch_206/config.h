@@ -98,7 +98,7 @@
 // =============================================================================
 // COLOR DEFINITIONS - RGB565 FORMAT
 // =============================================================================
-#define RGB565(r, g, b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
+#define RGB565(r, g, b) (((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))
 
 // Basic Colors
 #define COLOR_BLACK   0x0000
@@ -162,7 +162,7 @@
 #define NARUTO_CHAKRA_ORANGE  RGB565(255, 140, 0)
 #define NARUTO_OUTFIT_BLACK   RGB565(30, 30, 35)
 #define NARUTO_SAGE_GOLD      RGB565(255, 200, 50)
-#define NARUTO_SLATE_GREY     RGB565(50, 55, 65)
+#define NARUTO_SLATE_GREY      RGB565(50, 55, 65)
 #define NARUTO_SHADOW_ORANGE  RGB565(200, 100, 20)
 #define NARUTO_KURAMA_FLAME   RGB565(255, 100, 30)
 #define NARUTO_RASENGAN_BLUE  RGB565(100, 180, 255)
@@ -411,7 +411,8 @@ enum ScreenType {
     SCREEN_POMODORO,
     SCREEN_HABITS,
     SCREEN_DUNGEON,
-    SCREEN_SD_BACKUP
+    SCREEN_SD_BACKUP,
+    SCREEN_BATTERY
 };
 
 // App Types
@@ -429,15 +430,16 @@ enum AppType {
 };
 
 // Main Navigation Screens - UPDATED for infinite loop
-// Order: Watchface -> Steps -> App Grid -> Stats -> Watchface (loop)
+// Order: Watchface -> Steps -> App Grid -> Stats -> Battery -> Watchface (loop)
 enum MainScreen {
     MAIN_WATCHFACE = 0,
     MAIN_STEPS_TRACKER,
     MAIN_APP_GRID_1,
-    MAIN_CHARACTER_STATS
+    MAIN_CHARACTER_STATS,
+    MAIN_BATTERY
 };
 
-#define MAIN_SCREEN_COUNT 4
+#define MAIN_SCREEN_COUNT 5
 
 // Touch Events - FIXED: Added TOUCH_MOVE
 enum TouchEvent {
