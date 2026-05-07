@@ -65,7 +65,7 @@ void loop() {
 }
 ```
 
-### 2d. Every real user input (in `touch.cpp` / `navigation.cpp`)
+### 2d. Every real user input (in `touch.cpp" / "navigation.cpp`)
 ```cpp
 standbyRecordInteraction();
 ```
@@ -86,7 +86,7 @@ Watchface → Steps → AppGrid → Character Stats → Battery → Watchface �
 SCREEN_BATTERY,     // add anywhere in ScreenType enum
 ```
 
-### 3b. `config.h` — extend the MainScreen enum + count
+### 3b. `config.h" — extend the MainScreen enum + count
 Replace the existing MainScreen block:
 ```cpp
 enum MainScreen {
@@ -100,7 +100,7 @@ enum MainScreen {
 #define MAIN_SCREEN_COUNT 5   // ← bumped from 4
 ```
 
-### 3c. `navigation.cpp` — in the main-loop → ScreenType mapper
+### 3c. `navigation.cpp" — in the main-loop → ScreenType mapper
 Find the switch/if chain that translates `navState.currentMain` into a
 `ScreenType` (the one that already handles `MAIN_WATCHFACE`,
 `MAIN_STEPS_TRACKER`, `MAIN_APP_GRID_1`, `MAIN_CHARACTER_STATS`) and add:
@@ -110,7 +110,7 @@ case MAIN_BATTERY:
     break;
 ```
 
-### 3d. `ui.cpp` — in `drawCurrentScreen()`
+### 3d. `ui.cpp" — in `drawCurrentScreen()`
 ```cpp
 case SCREEN_BATTERY:
     batteryAppDraw();

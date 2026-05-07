@@ -1,5 +1,5 @@
-//✅ Timeout changed: 3 seconds → 5 seconds
-//✅ Power button changed: GPIO 0 → GPIO 10
+//✅ Timeout changed: 3 seconds ➔ 5 seconds
+//✅ Power button changed: GPIO 0 ➔ GPIO 10
 //✅ Screen timeout logic: Uses simple 5-second check (bypasses power manager)
 /*
  * ESP32_Watch.ino - Main Firmware with Power Management
@@ -51,6 +51,8 @@
 #include "ui.h"
 #include "sd_manager.h"
 #include "power_manager.h"
+#include "standby_mode.h"
+#include "battery_app.h"
 #include "xp_system.h"
 #include "wifi_sync.h"
 #include "time_edit.h"
@@ -58,16 +60,16 @@
 #include "companion.h"
 #include "new_apps.h"
 
-// ═══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════════
 // DUAL BOOT SUPPORT - Double-tap BOOT button to switch OS
-// ═══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════════
 #include "dual_boot_manager.h"
 #include "sd_preferences.h"
 
 // =============================================================================
 // POWER MANAGEMENT DEFINES
 // =============================================================================
-#define PWR_BUTTON              10      // Power button GPIO (CHANGED from 0)
+#define PWR_BUTTON               10      // Power button GPIO (CHANGED from 0)
 #define BUTTON_DEBOUNCE_MS      50      // Button debounce time
 #define SCREEN_OFF_TIMEOUT_MS   5000    // 5 seconds to turn screen off (CHANGED from 3000)
 #define WATCHDOG_TIMEOUT_SEC    10      // Watchdog timeout in seconds
@@ -160,15 +162,15 @@ void IRAM_ATTR powerButtonISR() {
 void initWatchdog() {
     Serial.println("[WDT] Initializing watchdog timer...");
     
-    // ==========================================================================
+    // ==============================================
     // FIX: On some ESP32-S3 boards with Arduino Core 3.x, the framework does NOT
     // auto-initialize the TWDT before setup(). esp_task_wdt_reconfigure() fails
     // with "TWDT was never initialized". We MUST call esp_task_wdt_init() ourselves.
     //
-    // Strategy: deinit (clean slate) → init fresh → subscribe loopTask only.
+    // Strategy: deinit (clean slate) ➔ init fresh ➔ subscribe loopTask only.
     // Use a long timeout (120s) for the entire setup() phase.
     // Normal 10s timeout is set at end of setup() before loop() starts.
-    // ==========================================================================
+    // ==============================================
     
     // Step 1: Clean slate - remove any pre-existing WDT (OK to fail if none exists)
     esp_task_wdt_deinit();
@@ -384,15 +386,15 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   
-  Serial.println("\n===================================");
+  Serial.println("\n=====================");
   Serial.println(" ESP32 Anime Gaming Watch IMPROVED");
   Serial.println(" With Watchdog & Screen Timeout");
-  Serial.println("===================================\n");
+  Serial.println("=====================\n");
 
-  // ═══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════════════════════
   // DUAL BOOT INITIALIZATION - Must be early, before other init!
   // Double-tap BOOT button (GPIO 0) within 500ms to switch OS
-  // ═══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════════════════════
   DualBoot.begin();                    // Initialize boot manager
   DualBoot.beginSD();                  // Mount SD card via SD_MMC
   DualBoot.checkDoubleTapBoot();       // Check for OS switch
@@ -401,7 +403,7 @@ void setup() {
   
   // Create /WATCH/FusionData/ folder for SD-based preferences
   SDPreferences::initFusionDataFolder();
-  // ═══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════════════════════
 
   initWatchdog();
   feedWatchdog();
@@ -415,11 +417,11 @@ void setup() {
   initDisplay();
   feedWatchdog();
   
-  // ==========================================================================
+  // =============================================================================
   // LOAD SAVED THEME from dedicated NVS namespace — BEFORE initializeThemes().
   // This reads from "theme_cfg" (isolated, nothing else writes to it).
   // Must happen before initializeThemes() so the correct theme is applied.
-  // ==========================================================================
+  // =============================================================================
   {
     ThemeType saved = loadThemeFromNVS();
     system_state.current_theme = saved;
@@ -483,9 +485,9 @@ void setup() {
   feedWatchdog();
   
   if (safeModeBoot) {
-    // ==========================================================================
+    // =============================================================================
     // SAFE MODE: Skip WiFi entirely - go straight to watchface with RTC time
-    // ==========================================================================
+    // =============================================================================
     Serial.println("\n[BOOT] *** SAFE MODE: Skipping WiFi sync ***");
     Serial.println("[BOOT] -> Using RTC chip time (PCF85063)");
     WatchTime rtc = getCurrentTime();
@@ -520,7 +522,7 @@ void setup() {
   
   feedWatchdog();
   
-  initWifiApps();
+  initWiFiApps();
   feedWatchdog();
   
   initStepsTracker();
@@ -537,14 +539,20 @@ void setup() {
   
   initPowerManager();
   feedWatchdog();
+
+  // Layered standby (IDLE -> AOD -> DEEP) + self-learning runtime estimator.
+  // Keeps using the active character watchface as the AOD face.
+  standbyInit();
+  system_state.steps_today = (int)standby_rtc_steps;  // restore across deep sleep
+  feedWatchdog();
   
   system_state.current_screen = SCREEN_WATCHFACE;
   drawWatchFace();
   drawNavigationIndicators();
   
-  // =========================================================================
+  // =============================================================================
   // SETUP COMPLETE: Clear boot panic counter + tighten WDT to runtime
-  // =========================================================================
+  // =============================================================================
   clearBootPanicCounter();
   
   {
@@ -596,6 +604,7 @@ void loop() {
     
     if (gesture.is_valid && gesture.event != TOUCH_NONE) {
       recordInteraction();
+      standbyRecordInteraction();
       lastActivityMs = millis();  // Reset 5-second timer on touch
       
       extern bool time_edit_active;
@@ -633,11 +642,12 @@ void loop() {
   }
   
   int loop_delay = getPowerLoopDelay();
+  standbyTick();      // layered standby state machine + learning sampler
   delay(loop_delay);
 }
 
 // =============================================================================
-// TOUCH GESTURE HANDLER
+// TOUCH GESTURE HANDLERS
 // =============================================================================
 
 void handleTouchGesture(TouchGesture& gesture) {
@@ -714,6 +724,14 @@ void handleTouchGesture(TouchGesture& gesture) {
     case SCREEN_CHARACTER_STATS:
       if (gesture.event == TOUCH_TAP) {
         handleCurrentScreenTouch(gesture);
+      } else if (gesture.event == TOUCH_SWIPE_LEFT || gesture.event == TOUCH_SWIPE_RIGHT) {
+        handleSwipeNavigation(gesture.dx, gesture.dy);
+      }
+      break;
+
+    case SCREEN_BATTERY:
+      if (gesture.event == TOUCH_TAP) {
+        batteryAppHandleTouch(gesture);
       } else if (gesture.event == TOUCH_SWIPE_LEFT || gesture.event == TOUCH_SWIPE_RIGHT) {
         handleSwipeNavigation(gesture.dx, gesture.dy);
       }
@@ -979,7 +997,7 @@ void updateCurrentScreen() {
       
       updateWatchFaceTime();
       
-      Serial.printf("[CLOCK] Minute changed → %02d:%02d\n", 
+      Serial.printf("[CLOCK] Minute changed ➔ %02d:%02d\n", 
                     current_time.hour, current_time.minute);
     }
   }
@@ -1118,5 +1136,5 @@ void saveAllData() {
     saveBossDataToSD();
   }
   
-  Serial.println("[SAVE] All data saved (SD card FusionData)");
+  Serial.println("[SAVE] All data saved (SD Card Fusion Data)");
 }
