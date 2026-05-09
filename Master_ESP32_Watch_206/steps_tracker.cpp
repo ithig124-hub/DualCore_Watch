@@ -465,10 +465,13 @@ void updateStepCount() {
   // CRITICAL: Sync to system_state so UI can display steps
   system_state.steps_today = steps_data.steps_today;
 
-  // Mirror to RTC_DATA_ATTR so step count survives deep sleep (standby_mode).
+
+  // ─── ADDED 5 LINES ──────────────────────────────────────────────────
+  // Mirror to RTC RAM so step count survives deep sleep (defined in standby_mode.cpp).
   // Zero-cost: just a 4-byte RTC RAM write, no NVS, no flash.
-  extern RTC_DATA_ATTR uint32_t standby_rtc_steps;
+  extern uint32_t standby_rtc_steps;
   standby_rtc_steps = (uint32_t)steps_data.steps_today;
+  // ─── END ADDITION ───────────────────────────────────────────────────
   
   // FUSION OS: XP Rewards for steps
   // Award 1 XP per 100 steps

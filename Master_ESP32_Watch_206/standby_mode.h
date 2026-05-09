@@ -14,6 +14,15 @@
 
 #include <Arduino.h>
 #include "config.h"
+#include "pin_config.h"   // BOOT_BUTTON, TP_INT (wake source pins)
+
+// Defensive fallbacks in case pin_config.h definitions move
+#ifndef BOOT_BUTTON
+#define BOOT_BUTTON 0
+#endif
+#ifndef TP_INT
+#define TP_INT 38
+#endif
 
 // =============================================================================
 // STANDBY STATES
