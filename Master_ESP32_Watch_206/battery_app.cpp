@@ -14,6 +14,7 @@
 #include "battery_app.h"
 #include "standby_mode.h"
 #include "display.h"   // Arduino_CO5300 *gfx
+#include "hardware.h"  // updateBatteryStatus()
 
 extern Arduino_CO5300 *gfx;
 extern SystemState     system_state;
@@ -95,6 +96,17 @@ static bool hit(TouchGesture& g, int x, int y, int w, int h) {
 // =============================================================================
 void batteryAppDraw() {
     if (!gfx) return;
+
+    // FIX: pull a fresh reading from the AXP2101 every time we redraw this
+    // screen so the displayed % is never stale (the main-loop 30s poll only
+    // refreshes while the watchface is active).
+    {
+        BatteryInfo bi = updateBatteryStatus();
+        if (system_state.power_available) {
+            system_state.battery_percentage = bi.percentage;
+            system_state.is_charging        = bi.is_charging;
+        }
+    }
 
     gfx->fillScreen(COLOR_BLACK);
 

@@ -522,7 +522,7 @@ void setup() {
   
   feedWatchdog();
   
-  initWiFiApps();
+  initWifiApps();
   feedWatchdog();
   
   initStepsTracker();
@@ -985,7 +985,15 @@ void updateCurrentScreen() {
   
   if (millis() - lastBatteryUpdate > 30000) {
     lastBatteryUpdate = millis();
-    updateBatteryStatus();
+    // FIX: capture the BatteryInfo and push it into system_state, otherwise
+    // the Battery app (and anyone else not on the watchface) reads stale data.
+    BatteryInfo bi = updateBatteryStatus();
+    if (system_state.power_available) {
+      system_state.battery_percentage = bi.percentage;
+      system_state.is_charging        = bi.is_charging;
+      system_state.low_battery_warning =
+          (bi.percentage <= BATTERY_LOW_THRESHOLD) && !bi.is_charging;
+    }
   }
   
   if (system_state.current_screen == SCREEN_WATCHFACE && 
@@ -1012,7 +1020,6 @@ void updateCurrentScreen() {
     AdvancedGameManager::updateGame();
   }
 }
-
 // =============================================================================
 // SAVE ALL DATA - Persistent Storage using SD Card (/WATCH/FusionData/)
 // =============================================================================

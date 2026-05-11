@@ -47,7 +47,11 @@ enum StandbyState {
 #define STANDBY_DEEP_AFTER_MS       180000UL
 #endif
 #ifndef STANDBY_AOD_TICK_MS
-#define STANDBY_AOD_TICK_MS         30000UL
+// Must be SHORTER than the runtime task watchdog (10 s in .ino) — otherwise
+// the AOD light-sleep blocks the loopTask long enough to trip the WDT and
+// reboot the watch. 5 s gives us comfortable headroom + ~once-a-minute clock
+// refresh through the natural sleep/wake cadence.
+#define STANDBY_AOD_TICK_MS         5000UL
 #endif
 #ifndef STANDBY_IDLE_BRIGHTNESS_PCT
 #define STANDBY_IDLE_BRIGHTNESS_PCT 50

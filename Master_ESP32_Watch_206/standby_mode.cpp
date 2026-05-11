@@ -19,6 +19,7 @@
 
 #include <esp_sleep.h>
 #include <esp_pm.h>
+#include <esp_task_wdt.h>
 #include <driver/rtc_io.h>
 
 extern Arduino_CO5300 *gfx;
@@ -282,6 +283,14 @@ static void enterDeep() {
 // Returns the wake reason.
 // -----------------------------------------------------------------------------
 static StandbyWakeReason aodLightSleep(uint32_t duration_ms) {
+    // FIX: AOD used to sleep for up to 30 s while the runtime task-watchdog is
+    // only 10 s, so every entry into AOD reliably tripped the WDT and rebooted
+    // the watch. We now (a) clamp the per-call sleep to a value safely below
+    // the WDT, and (b) feed the WDT immediately before sleeping and right after
+    // waking so the loopTask never looks "stuck" to TWDT.
+    const uint32_t kMaxChunkMs = 5000UL;   // < 10 s WDT, leaves headroom
+    if (duration_ms > kMaxChunkMs) duration_ms = kMaxChunkMs;
+
     // Arm GPIO wakes (active-low)
     gpio_wakeup_enable((gpio_num_t)STANDBY_WAKE_TOUCH_PIN,  GPIO_INTR_LOW_LEVEL);
     gpio_wakeup_enable((gpio_num_t)STANDBY_WAKE_BUTTON_PIN, GPIO_INTR_LOW_LEVEL);
@@ -291,7 +300,13 @@ static StandbyWakeReason aodLightSleep(uint32_t duration_ms) {
     esp_sleep_enable_gpio_wakeup();
     esp_sleep_enable_timer_wakeup((uint64_t)duration_ms * 1000ULL);
 
+    // Pet the watchdog right before we suspend the loopTask.
+    esp_task_wdt_reset();
+
     esp_light_sleep_start();   // ~1-5 ms to wake, RAM preserved
+
+    // Pet again the moment we resume — TWDT counts wall-clock, not CPU time.
+    esp_task_wdt_reset();
 
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
     switch (cause) {
@@ -395,6 +410,11 @@ void standbyInit() {
 
 void standbyTick() {
     if (!standby.enabled) return;
+
+    // Always pet the WDT at the top of the tick — some paths below (entering
+    // deep sleep, multiple AOD light-sleep chunks) can otherwise let the
+    // loopTask appear unresponsive to the runtime task watchdog.
+    esp_task_wdt_reset();
 
     // Cheap 5-min sampler for the self-learning runtime estimator.
     standbyLearningSample();
