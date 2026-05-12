@@ -40,8 +40,10 @@ void aodRender(bool full_redraw) {
 
     // --- Force the watchface to draw as a still frame -------------------------
     power_manager.animations_active = false;  // single static frame, no FX
+    system_state.is_aod_mode = true;
 
     drawWatchFace();   // uses the user's selected character theme
+    system_state.is_aod_mode = false;
 
     // --- Restore state --------------------------------------------------------
     power_manager.animations_active = saved_animations;

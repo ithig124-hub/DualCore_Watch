@@ -449,7 +449,11 @@ void standbyTick() {
 
             // Light-sleep until the next minute boundary OR a wake event.
             // This is where the real battery saving during AOD happens.
-            StandbyWakeReason r = aodLightSleep(STANDBY_AOD_TICK_MS);
+                        WatchTime t = getCurrentTime();
+            uint32_t sleep_ms = (60 - t.second) * 1000UL;
+            if (sleep_ms > 55000UL) sleep_ms = 55000UL;
+            if (sleep_ms < 1000UL) sleep_ms = 1000UL;
+            StandbyWakeReason r = aodLightSleep(sleep_ms);
             if (r == WAKE_TOUCH || r == WAKE_BUTTON || r == WAKE_MOTION) {
                 enterActive(r);
             } else {

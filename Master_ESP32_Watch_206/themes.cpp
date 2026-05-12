@@ -536,7 +536,8 @@ void playThemeTransition(ThemeType theme) {
     case THEME_TANJIRO_SUN: {
       // Tanjiro: Fire breathing effect
       gfx->fillScreen(COLOR_BLACK);
-      for (int i = 0; i < 15; i++) {
+      if (!system_state.is_aod_mode) {
+    for (int i = 0; i < 15; i++) {
         int x = random(0, LCD_WIDTH);
         int y = LCD_HEIGHT - random(50, 200);
         int size = random(20, 60);
@@ -756,8 +757,8 @@ ThemeType getDailyRotationTheme(int day_of_week) {
 }
 
 void updateDailyCharacter() {
-  WatchTime time = getCurrentTime();
-  Serial.printf("[Themes] Daily: %s\n", getThemeName(getDailyRotationTheme(time.weekday)));
+  WatchTime watch_time = getCurrentTime();
+  Serial.printf("[Themes] Daily: %s\n", getThemeName(getDailyRotationTheme(watch_time.weekday)));
 }
 
 // =============================================================================
@@ -802,16 +803,16 @@ void updateWatchFaceTime() {
   static int prev_minute = -1;
   static int prev_second = -1;
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   
   // Nothing changed
-  if (time.hour == prev_hour && time.minute == prev_minute && time.second == prev_second) {
+  if (watch_time.hour == prev_hour && watch_time.minute == prev_minute && watch_time.second == prev_second) {
     return;
   }
   
-  prev_hour = time.hour;
-  prev_minute = time.minute;
-  prev_second = time.second;
+  prev_hour = watch_time.hour;
+  prev_minute = watch_time.minute;
+  prev_second = watch_time.second;
   
   // Only full redraw when absolutely needed (on first draw or theme change)
   if (watchface_needs_full_redraw) {
@@ -831,20 +832,23 @@ void drawLuffyWatchFace() {
   // Pure AMOLED black
   gfx->fillScreen(0x0000);
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;  // 205
   int centerY = 180;  // Adjusted for taller display
   
-  // === AMBIENT SUN GLOW ===
+  if (!system_state.is_aod_mode) {
+    // === AMBIENT SUN GLOW ===
   for (int r = 180; r > 0; r -= 4) {
     uint8_t alpha = map(r, 0, 180, 35, 0);
     gfx->drawCircle(centerX, centerY - 20, r, RGB565(alpha, alpha/3, 0));
   }
+  }
+  }
   
   // === TIME DISPLAY - Larger for bigger screen ===
   char hourStr[3], minStr[3];
-  sprintf(hourStr, "%02d", time.hour);
-  sprintf(minStr, "%02d", time.minute);
+  sprintf(hourStr, "%02d", watch_time.hour);
+  sprintf(minStr, "%02d", watch_time.minute);
   
   int timeY = 110;
   
@@ -866,16 +870,18 @@ void drawLuffyWatchFace() {
   // Animated colon
   int colonX = 200;
   int colonY = timeY + 40;
-  uint16_t colonColor = (time.second % 2) ? LUFFY_SUN_GOLD : RGB565(200, 150, 50);
+  uint16_t colonColor = (watch_time.second % 2) ? LUFFY_SUN_GOLD : RGB565(200, 150, 50);
   gfx->fillCircle(colonX, colonY - 22, 7, colonColor);
   gfx->fillCircle(colonX, colonY + 22, 7, colonColor);
   
-  // Seconds arc - larger radius for bigger display
-  float secAngle = (time.second / 60.0) * 2 * PI - PI/2;
+  if (!system_state.is_aod_mode) {
+    // Seconds arc - larger radius for bigger display
+  float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
     int sx = centerX + cos(a) * 160;
     int sy = centerY - 10 + sin(a) * 70;
     gfx->fillCircle(sx, sy, 3, LUFFY_ENERGY_ORANGE);
+  }
   }
   
   // === DATE SECTION - Wider for bigger display ===
@@ -893,17 +899,17 @@ void drawLuffyWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(LUFFY_SUN_GOLD);
   gfx->setCursor(dateX + 15, dateY + 8);
-  gfx->print(days[time.weekday % 7]);
+  gfx->print(days[watch_time.weekday % 7]);
   
   gfx->setTextSize(3);
   gfx->setTextColor(COLOR_WHITE);
   gfx->setCursor(dateX + 100, dateY + 5);
-  gfx->printf("%02d", time.day);
+  gfx->printf("%02d", watch_time.day);
   
   gfx->setTextSize(2);
   gfx->setTextColor(RGB565(180, 140, 60));
   gfx->setCursor(dateX + 170, dateY + 8);
-  gfx->print(months[(time.month - 1) % 12]);
+  gfx->print(months[(watch_time.month - 1) % 12]);
   
   // === CHARACTER TITLE ===
   gfx->setTextSize(2);
@@ -911,8 +917,10 @@ void drawLuffyWatchFace() {
   gfx->setCursor(centerX - 40, 30);
   gfx->print("GEAR 5");
   
-  // === STATS CARDS ===
+  if (!system_state.is_aod_mode) {
+    // === STATS CARDS ===
   drawLuffyStatsCards();
+  }
   
   // === ACTIVITY RING - Positioned for taller display ===
   drawLuffyActivityRings(centerX, 440);
@@ -976,7 +984,7 @@ void drawLuffyStatsCards() {
 void drawJinwooWatchFace() {
   gfx->fillScreen(0x0000);
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;  // 205
   int centerY = 180;  // Adjusted for taller display
   
@@ -988,15 +996,18 @@ void drawJinwooWatchFace() {
     initialized = true;
   }
   
-  for (int i = 0; i < 15; i++) {
+  if (!system_state.is_aod_mode) {
+    for (int i = 0; i < 15; i++) {
     particleY[i] = (particleY[i] - 1 + LCD_HEIGHT) % LCD_HEIGHT;
     int px = 25 + (i * 25) % (LCD_WIDTH - 50);
     int size = 2 + (i % 3);
     uint8_t bright = 15 + (particleY[i] * 25) / LCD_HEIGHT;
     gfx->fillCircle(px, particleY[i], size, RGB565(bright, bright/3, bright + 15));
   }
+  }
   
-  // === MONARCH HEXAGON - Larger ===
+  if (!system_state.is_aod_mode) {
+    // === MONARCH HEXAGON - Larger ===
   for (int ring = 0; ring < 3; ring++) {
     int r = 120 + ring * 25;
     for (int i = 0; i < 6; i++) {
@@ -1009,11 +1020,12 @@ void drawJinwooWatchFace() {
       gfx->drawLine(x1, y1, x2, y2, RGB565(25 - ring*7, 12 - ring*3, 45 - ring*10));
     }
   }
+  }
   
   // === TIME - Larger ===
   char hourStr[3], minStr[3];
-  sprintf(hourStr, "%02d", time.hour);
-  sprintf(minStr, "%02d", time.minute);
+  sprintf(hourStr, "%02d", watch_time.hour);
+  sprintf(minStr, "%02d", watch_time.minute);
   
   int timeY = 110;
   
@@ -1060,7 +1072,7 @@ void drawJinwooWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(RGB565(100, 80, 140));
   char dateStr[15];
-  sprintf(dateStr, "%s %02d.%02d", days[time.weekday % 7], time.day, time.month);
+  sprintf(dateStr, "%s %02d.%02d", days[watch_time.weekday % 7], watch_time.day, watch_time.month);
   gfx->setCursor(centerX - 60, 315);
   gfx->print(dateStr);
   
@@ -1125,12 +1137,12 @@ void drawYugoWatchFace() {
   // Enhanced portal effects
   drawYugoPortalEffects();
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;
   int centerY = 180;
   
   char timeStr[16];
-  sprintf(timeStr, "%02d:%02d", time.hour, time.minute);
+  sprintf(timeStr, "%02d:%02d", watch_time.hour, watch_time.minute);
   
   // Title with shadow glow
   gfx->setTextColor(RGB565(20, 40, 50));
@@ -1154,14 +1166,16 @@ void drawYugoWatchFace() {
   gfx->setTextSize(3);
   gfx->setTextColor(YUGO_WAKFU_ENERGY);
   gfx->setCursor(310, 175);
-  gfx->printf("%02d", time.second);
+  gfx->printf("%02d", watch_time.second);
   
-  // Seconds arc - portal energy ring
-  float secAngle = (time.second / 60.0) * 2 * PI - PI/2;
+  if (!system_state.is_aod_mode) {
+    // Seconds arc - portal energy ring
+  float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
     gfx->fillCircle(sx, sy, 3, YUGO_PORTAL_CYAN);
+  }
   }
   
   // Character tagline
@@ -1176,7 +1190,7 @@ void drawYugoWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(RGB565(130, 160, 170));
   gfx->setCursor(centerX - 80, dateY);
-  gfx->printf("%s  %02d.%02d", days[time.weekday % 7], time.day, time.month);
+  gfx->printf("%s  %02d.%02d", days[watch_time.weekday % 7], watch_time.day, watch_time.month);
   
   // === STATS CARDS ===
   int cardY = 340;
@@ -1240,12 +1254,12 @@ void drawNarutoWatchFace() {
   // Enhanced sage aura
   drawNarutoSageAuraEnhanced();
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;
   int centerY = 180;
   
   char timeStr[16];
-  sprintf(timeStr, "%02d:%02d", time.hour, time.minute);
+  sprintf(timeStr, "%02d:%02d", watch_time.hour, watch_time.minute);
   
   // Title with glow shadow
   gfx->setTextColor(RGB565(40, 25, 10));
@@ -1269,10 +1283,10 @@ void drawNarutoWatchFace() {
   gfx->setTextSize(3);
   gfx->setTextColor(NARUTO_KURAMA_FLAME);
   gfx->setCursor(310, 175);
-  gfx->printf("%02d", time.second);
+  gfx->printf("%02d", watch_time.second);
   
   // Chakra arc - seconds progress
-  float secAngle = (time.second / 60.0) * 2 * PI - PI/2;
+  float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
@@ -1291,7 +1305,7 @@ void drawNarutoWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(RGB565(150, 130, 100));
   gfx->setCursor(centerX - 80, dateY);
-  gfx->printf("%s  %02d.%02d", days[time.weekday % 7], time.day, time.month);
+  gfx->printf("%s  %02d.%02d", days[watch_time.weekday % 7], watch_time.day, watch_time.month);
   
   // === STATS CARDS ===
   int cardY = 340;
@@ -1353,12 +1367,12 @@ void drawGokuWatchFace() {
   gfx->fillScreen(COLOR_BLACK);
   drawGokuUIAuraEnhanced();
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;
   int centerY = 180;
   
   char timeStr[16];
-  sprintf(timeStr, "%02d:%02d", time.hour, time.minute);
+  sprintf(timeStr, "%02d:%02d", watch_time.hour, watch_time.minute);
   
   // Title with silver glow
   gfx->setTextColor(RGB565(30, 35, 45));
@@ -1382,11 +1396,11 @@ void drawGokuWatchFace() {
   gfx->setTextSize(3);
   gfx->setTextColor(GOKU_KI_BLAST_BLUE);
   gfx->setCursor(310, 175);
-  gfx->printf("%02d", time.second);
+  gfx->printf("%02d", watch_time.second);
   
   // Speed lines and ki arc
   drawGokuSpeedLines();
-  float secAngle = (time.second / 60.0) * 2 * PI - PI/2;
+  float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
@@ -1405,7 +1419,7 @@ void drawGokuWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(RGB565(130, 140, 150));
   gfx->setCursor(centerX - 80, dateY);
-  gfx->printf("%s  %02d.%02d", days[time.weekday % 7], time.day, time.month);
+  gfx->printf("%s  %02d.%02d", days[watch_time.weekday % 7], watch_time.day, watch_time.month);
   
   // === STATS CARDS ===
   int cardY = 330;
@@ -1467,12 +1481,12 @@ void drawTanjiroWatchFace() {
   gfx->fillScreen(TANJIRO_DARK_CHARCOAL);
   drawTanjiroSunFlamesEnhanced();
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;
   int centerY = 180;
   
   char timeStr[16];
-  sprintf(timeStr, "%02d:%02d", time.hour, time.minute);
+  sprintf(timeStr, "%02d:%02d", watch_time.hour, watch_time.minute);
   
   // Title with flame glow
   gfx->setTextColor(RGB565(50, 25, 10));
@@ -1496,10 +1510,10 @@ void drawTanjiroWatchFace() {
   gfx->setTextSize(3);
   gfx->setTextColor(TANJIRO_WATER_BLUE);
   gfx->setCursor(310, 175);
-  gfx->printf("%02d", time.second);
+  gfx->printf("%02d", watch_time.second);
   
   // Flame arc
-  float secAngle = (time.second / 60.0) * 2 * PI - PI/2;
+  float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
@@ -1518,7 +1532,7 @@ void drawTanjiroWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(RGB565(140, 120, 100));
   gfx->setCursor(centerX - 80, dateY);
-  gfx->printf("%s  %02d.%02d", days[time.weekday % 7], time.day, time.month);
+  gfx->printf("%s  %02d.%02d", days[watch_time.weekday % 7], watch_time.day, watch_time.month);
   
   // === STATS CARDS ===
   int cardY = 340;
@@ -1580,12 +1594,12 @@ void drawGojoWatchFace() {
   gfx->fillScreen(COLOR_BLACK);
   drawGojoInfinityAuraEnhanced();
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;
   int centerY = 180;
   
   char timeStr[16];
-  sprintf(timeStr, "%02d:%02d", time.hour, time.minute);
+  sprintf(timeStr, "%02d:%02d", watch_time.hour, watch_time.minute);
   
   // Title with infinity glow
   gfx->setTextColor(RGB565(20, 30, 50));
@@ -1609,13 +1623,13 @@ void drawGojoWatchFace() {
   gfx->setTextSize(3);
   gfx->setTextColor(GOJO_HOLLOW_PURPLE);
   gfx->setCursor(310, 175);
-  gfx->printf("%02d", time.second);
+  gfx->printf("%02d", watch_time.second);
   
   // Six Eyes glow
   drawGojoSixEyesGlowEnhanced();
   
   // Infinity arc
-  float secAngle = (time.second / 60.0) * 2 * PI - PI/2;
+  float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
@@ -1634,7 +1648,7 @@ void drawGojoWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(RGB565(120, 140, 170));
   gfx->setCursor(centerX - 80, dateY);
-  gfx->printf("%s  %02d.%02d", days[time.weekday % 7], time.day, time.month);
+  gfx->printf("%s  %02d.%02d", days[watch_time.weekday % 7], watch_time.day, watch_time.month);
   
   // === STATS CARDS ===
   int cardY = 330;
@@ -1695,12 +1709,12 @@ void drawLeviWatchFace() {
   gfx->fillScreen(RGB565(2, 2, 5));
   gfx->fillScreen(LEVI_CHARCOAL_DARK);
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;
   int centerY = 180;
   
   char timeStr[16];
-  sprintf(timeStr, "%02d:%02d", time.hour, time.minute);
+  sprintf(timeStr, "%02d:%02d", watch_time.hour, watch_time.minute);
   
   // Survey Corps wings effect
   drawLeviWingsEffect();
@@ -1727,13 +1741,13 @@ void drawLeviWatchFace() {
   gfx->setTextSize(3);
   gfx->setTextColor(LEVI_SILVER_BLADE);
   gfx->setCursor(310, 175);
-  gfx->printf("%02d", time.second);
+  gfx->printf("%02d", watch_time.second);
   
   // Blade shine effect
   drawLeviBladeShineEnhanced();
   
   // Steel arc
-  float secAngle = (time.second / 60.0) * 2 * PI - PI/2;
+  float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
@@ -1752,7 +1766,7 @@ void drawLeviWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(RGB565(120, 125, 130));
   gfx->setCursor(centerX - 80, dateY);
-  gfx->printf("%s  %02d.%02d", days[time.weekday % 7], time.day, time.month);
+  gfx->printf("%s  %02d.%02d", days[watch_time.weekday % 7], watch_time.day, watch_time.month);
   
   // === STATS CARDS ===
   int cardY = 330;
@@ -1813,12 +1827,12 @@ void drawSaitamaWatchFace() {
   gfx->fillScreen(RGB565(2, 2, 5));
   gfx->fillScreen(COLOR_BLACK);
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;
   int centerY = 180;
   
   char timeStr[16];
-  sprintf(timeStr, "%02d:%02d", time.hour, time.minute);
+  sprintf(timeStr, "%02d:%02d", watch_time.hour, watch_time.minute);
   
   // Impact lines background
   drawSaitamaImpactLines();
@@ -1845,10 +1859,10 @@ void drawSaitamaWatchFace() {
   gfx->setTextSize(3);
   gfx->setTextColor(SAITAMA_CAPE_RED);
   gfx->setCursor(310, 175);
-  gfx->printf("%02d", time.second);
+  gfx->printf("%02d", watch_time.second);
   
   // Impact arc
-  float secAngle = (time.second / 60.0) * 2 * PI - PI/2;
+  float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
@@ -1867,7 +1881,7 @@ void drawSaitamaWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(RGB565(140, 140, 140));
   gfx->setCursor(centerX - 80, dateY);
-  gfx->printf("%s  %02d.%02d", days[time.weekday % 7], time.day, time.month);
+  gfx->printf("%s  %02d.%02d", days[watch_time.weekday % 7], watch_time.day, watch_time.month);
   
   // === STATS CARDS ===
   int cardY = 350;
@@ -1929,12 +1943,12 @@ void drawDekuWatchFace() {
   gfx->fillScreen(DEKU_DARK_HERO);
   drawDekuOFALightningEnhanced();
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;
   int centerY = 180;
   
   char timeStr[16];
-  sprintf(timeStr, "%02d:%02d", time.hour, time.minute);
+  sprintf(timeStr, "%02d:%02d", watch_time.hour, watch_time.minute);
   
   // Title with lightning glow
   gfx->setTextColor(RGB565(20, 40, 30));
@@ -1958,10 +1972,10 @@ void drawDekuWatchFace() {
   gfx->setTextSize(3);
   gfx->setTextColor(DEKU_OFA_LIGHTNING);
   gfx->setCursor(310, 175);
-  gfx->printf("%02d", time.second);
+  gfx->printf("%02d", watch_time.second);
   
   // Lightning arc
-  float secAngle = (time.second / 60.0) * 2 * PI - PI/2;
+  float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
@@ -1980,7 +1994,7 @@ void drawDekuWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(RGB565(120, 150, 130));
   gfx->setCursor(centerX - 80, dateY);
-  gfx->printf("%s  %02d.%02d", days[time.weekday % 7], time.day, time.month);
+  gfx->printf("%s  %02d.%02d", days[watch_time.weekday % 7], watch_time.day, watch_time.month);
   
   // === STATS CARDS ===
   int cardY = 340;
@@ -2040,9 +2054,9 @@ void drawSleepWatchFace() {
   // CRITICAL FIX: Clear entire screen first to prevent overlap
   gfx->fillScreen(RGB565(2, 2, 5));
   gfx->fillScreen(COLOR_BLACK);
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   char timeStr[16];
-  sprintf(timeStr, "%02d:%02d", time.hour, time.minute);
+  sprintf(timeStr, "%02d:%02d", watch_time.hour, watch_time.minute);
   gfx->setTextSize(6);
   gfx->setTextColor(RGB565(50, 50, 50));
   gfx->setCursor(80, 220);
@@ -2065,7 +2079,7 @@ void drawBoboiboyWatchFace() {
   // Use dynamic background
   drawDynamicBackground(THEME_BOBOIBOY);
   
-  WatchTime time = getCurrentTime();
+  WatchTime watch_time = getCurrentTime();
   int centerX = LCD_WIDTH / 2;  // 205
   
   // Element data
@@ -2119,10 +2133,10 @@ void drawBoboiboyWatchFace() {
   int startX = (LCD_WIDTH - totalW) / 2;
   
   char digits[5];
-  digits[0] = '0' + (time.hour / 10);
-  digits[1] = '0' + (time.hour % 10);
-  digits[2] = '0' + (time.minute / 10);
-  digits[3] = '0' + (time.minute % 10);
+  digits[0] = '0' + (watch_time.hour / 10);
+  digits[1] = '0' + (watch_time.hour % 10);
+  digits[2] = '0' + (watch_time.minute / 10);
+  digits[3] = '0' + (watch_time.minute % 10);
   digits[4] = '\0';
   
   // Draw 4 digit panels
@@ -2165,7 +2179,7 @@ void drawBoboiboyWatchFace() {
   gfx->setTextSize(2);
   gfx->setTextColor(dimColor);
   gfx->setCursor(colonX + 2, clockY + digitH + 5);
-  gfx->printf(":%02d", time.second);
+  gfx->printf(":%02d", watch_time.second);
   
   // ============================================================================
   // ELEMENT NAME BANNER
@@ -2266,7 +2280,7 @@ void drawBoboiboyWatchFace() {
   gfx->setTextColor(COLOR_WHITE);
   gfx->setTextSize(2);
   gfx->setCursor(panelStartX + 8, statsY + 35);
-  gfx->printf("%s %02d/%02d", days[time.weekday % 7], time.day, time.month);
+  gfx->printf("%s %02d/%02d", days[watch_time.weekday % 7], watch_time.day, watch_time.month);
   
   // Panel 2: Steps
   int panel2X = panelStartX + panelW + panelGap;

@@ -331,6 +331,10 @@ void updateStepCount() {
   static uint32_t last_hw_steps = 0;
   
   if (!pedometer_initialized) {
+    Wire.beginTransmission(QMI8658_ADDR);
+    Wire.write(0x07);
+    Wire.write(0x03);
+    Wire.endTransmission();
     // Configure QMI8658 pedometer - SUPER SENSITIVE SETTINGS
     
     // Step 1: Configure pedometer parameters via CAL registers

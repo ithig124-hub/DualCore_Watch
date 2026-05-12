@@ -643,7 +643,12 @@ void loop() {
   
   int loop_delay = getPowerLoopDelay();
   standbyTick();      // layered standby state machine + learning sampler
-  delay(loop_delay);
+  if (!screenOn) {
+    esp_sleep_enable_timer_wakeup(loop_delay * 1000);
+    esp_light_sleep_start();
+  } else {
+    delay(loop_delay);
+  }
 }
 
 // =============================================================================

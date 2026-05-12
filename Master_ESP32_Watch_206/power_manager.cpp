@@ -38,6 +38,7 @@ void initPowerManager() {
   power_manager.state_change_time = millis();
   power_manager.original_brightness = system_state.brightness;
   power_manager.current_state = POWER_ACTIVE;
+  setCpuFrequencyMhz(CPU_FREQ_ACTIVE);
   power_manager.current_delay = FPS_ACTIVE;
   power_manager.sensor_poll_interval = SENSOR_POLL_ACTIVE;
   power_manager.animations_active = true;
@@ -66,6 +67,7 @@ void recordInteraction() {
   if (power_manager.current_state != POWER_ACTIVE) {
     PowerState old_state = power_manager.current_state;
     power_manager.current_state = POWER_ACTIVE;
+  setCpuFrequencyMhz(CPU_FREQ_ACTIVE);
     power_manager.state_change_time = now;
     power_manager.current_delay = FPS_ACTIVE;
     power_manager.animations_active = true;
@@ -90,6 +92,7 @@ void updatePowerState() {
   // Don't manage power if screen is off
   if (!screenOn) {
     power_manager.current_state = POWER_SCREEN_OFF;
+    setCpuFrequencyMhz(CPU_FREQ_MINIMAL);
     return;
   }
   
@@ -116,6 +119,7 @@ void updatePowerState() {
   
   // NORMAL: Stay ACTIVE all the time
   power_manager.current_state = POWER_ACTIVE;
+  setCpuFrequencyMhz(CPU_FREQ_ACTIVE);
   power_manager.current_delay = FPS_ACTIVE;
   power_manager.sensor_poll_interval = SENSOR_POLL_ACTIVE;
   power_manager.animations_active = true;
@@ -205,6 +209,7 @@ void triggerAnimationBurst(unsigned long duration_ms) {
 void forceActiveState() {
   if (power_manager.current_state != POWER_ACTIVE) {
     power_manager.current_state = POWER_ACTIVE;
+  setCpuFrequencyMhz(CPU_FREQ_ACTIVE);
     power_manager.last_interaction = millis();
     power_manager.state_change_time = millis();
     power_manager.current_delay = FPS_ACTIVE;
@@ -261,6 +266,7 @@ void togglePowerSaver() {
     // Restore full CPU/FPS power — brightness stays at user-set level
     Serial.println("[POWER] Power Saver: OFF");
     power_manager.current_state = POWER_ACTIVE;
+  setCpuFrequencyMhz(CPU_FREQ_ACTIVE);
     power_manager.current_delay = FPS_ACTIVE;
     power_manager.animations_active = true;
     setCpuFrequencyMhz(CPU_FREQ_ACTIVE);
