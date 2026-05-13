@@ -12,6 +12,7 @@
  * - Tap-to-switch elements for BoBoiBoy
  */
 
+
 #include "themes.h"
 #include "config.h"
 #include "display.h"
@@ -23,6 +24,14 @@
 #include "navigation.h"
 #include "companion.h"
 #include <Preferences.h>  // Real ESP32 NVS for theme persistence
+
+extern CharacterXPData* getCurrentCharacterXP();
+extern bool g_force_char_stats_redraw;
+extern const char* getEquippedTitle();
+extern void equipTitle(int title_index);
+extern void feedWatchdog();
+extern void forceWatchfaceRedraw();
+extern void loadXPData();
 
 extern Arduino_CO5300 *gfx;
 extern SystemState system_state;
@@ -58,9 +67,8 @@ void loadXPDataForTheme(ThemeType theme) {
   // This function ensures XP data is properly loaded for the selected character
   // when theme changes. This fixes the bug where Luffy's titles would be shown
   // instead of the new character's titles after a theme change.
-  
-  extern void loadXPData();  // Load XP from NVS
-  extern CharacterXPData* getCurrentCharacterXP();
+  // Load XP from NVS
+
   
   // Load XP data from NVS (this reads character-specific data based on theme)
   loadXPData();
@@ -377,7 +385,7 @@ void setTheme(ThemeType theme) {
 // =============================================================================
 
 void playThemeTransition(ThemeType theme) {
-  extern void feedWatchdog();
+
   int centerX = LCD_WIDTH / 2;
   int centerY = LCD_HEIGHT / 2;
   
@@ -553,6 +561,7 @@ void playThemeTransition(ThemeType theme) {
       gfx->fillScreen(TANJIRO_FIRE_ORANGE);
       delay(100);
       feedWatchdog();
+      }
       break;
     }
     
@@ -571,7 +580,7 @@ void playThemeTransition(ThemeType theme) {
       // Screen goes to void blue-black
       gfx->fillScreen(RGB565(5, 10, 20));
       delay(200);
-      feedWatchdog();  // Feed mid-animation — Gojo's is the longest
+      feedWatchdog();  // Feed mid-animation â€” Gojo's is the longest
       
       // Domain EXPANDING outward from center - the void opening up
       for (int r = 10; r < 350; r += 15) {
@@ -767,7 +776,7 @@ void updateDailyCharacter() {
 
 void drawWatchFace() {
   // Force full redraw flag for this draw cycle
-  extern void forceWatchfaceRedraw();
+
   forceWatchfaceRedraw();
   
   switch(system_state.current_theme) {
@@ -841,7 +850,6 @@ void drawLuffyWatchFace() {
   for (int r = 180; r > 0; r -= 4) {
     uint8_t alpha = map(r, 0, 180, 35, 0);
     gfx->drawCircle(centerX, centerY - 20, r, RGB565(alpha, alpha/3, 0));
-  }
   }
   }
   
@@ -2748,7 +2756,7 @@ void drawGlassStatBar(int x, int y, int w, int h, float progress, uint16_t color
 // =============================================================================
 
 void forceCharacterStatsRedraw() {
-  extern bool g_force_char_stats_redraw;
+
   g_force_char_stats_redraw = true;
 }
 
@@ -2762,7 +2770,7 @@ void drawCharacterStatsScreen() {
   // ==========================================================================
   // FIX: Check force flag FIRST - ensures redraw when navigating here
   // ==========================================================================
-  extern bool g_force_char_stats_redraw;
+
   bool data_changed = g_force_char_stats_redraw ||
                       (system_state.player_level != last_level) || 
                       (char_xp && char_xp->xp != last_xp) ||
@@ -3626,7 +3634,7 @@ switch(system_state.current_theme) {
     bool unlocked = titles[idx].unlocked;
     
     // Check if this title is currently equipped
-    extern const char* getEquippedTitle();
+
     const char* equipped_title_name = getEquippedTitle();
     bool is_equipped = (strcmp(titles[idx].name, equipped_title_name) == 0);
     
@@ -3829,7 +3837,7 @@ void handleProgressionTouch(TouchGesture& gesture) {
         
         if (unlocked) {
           // EQUIP THIS TITLE
-          extern void equipTitle(int title_index);
+
           equipTitle(titleIdx);
           
           Serial.printf("[Progression] Equipped title #%d: %s\n", titleIdx, titles[titleIdx].name);
@@ -4072,17 +4080,17 @@ static void savePerThemeDataOnly() {
 //   1. Play a SHORT visual "switching" flash so the user gets instant
 //      feedback the tap was registered.
 //   2. Save OLD character's per-theme game data to SD (best-effort, ignored
-//      on failure — critical path does NOT depend on SD).
+//      on failure â€” critical path does NOT depend on SD).
 //   3. Commit new theme to REAL ESP32 NVS (on-chip flash). This is the only
 //      step that MUST succeed for persistence across reboot.
 //   4. Play the character-specific transition animation (fun visual).
 //   5. Small delay to guarantee the NVS write has flushed.
-//   6. ESP.restart() — the firmware boots back up, reads the theme from NVS
+//   6. ESP.restart() â€” the firmware boots back up, reads the theme from NVS
 //      in setup(), and every screen (watchface, storyline, stats, companion,
 //      apps) is initialised with the NEW character automatically.
 // =============================================================================
 static void applyThemeAndReboot(ThemeType newTheme) {
-  extern void feedWatchdog();
+
   
   // Validate range so a bad tap never stores garbage.
   if ((int)newTheme < 0 || (int)newTheme >= THEME_COUNT) {
@@ -4093,7 +4101,7 @@ static void applyThemeAndReboot(ThemeType newTheme) {
   Serial.printf("[THEME] === SWITCHING to %s (%d) ===\n",
                 getThemeName(newTheme), (int)newTheme);
   
-  // STEP 1 — Instant visual feedback (tap was registered).
+  // STEP 1 â€” Instant visual feedback (tap was registered).
   gfx->fillScreen(COLOR_BLACK);
   gfx->setTextColor(COLOR_WHITE);
   gfx->setTextSize(2);
@@ -4101,11 +4109,11 @@ static void applyThemeAndReboot(ThemeType newTheme) {
   gfx->print("SWITCHING...");
   feedWatchdog();
   
-  // STEP 2 — Save OLD character's per-theme data (best-effort).
+  // STEP 2 â€” Save OLD character's per-theme data (best-effort).
   savePerThemeDataOnly();
   feedWatchdog();
   
-  // STEP 3 — Commit new theme to REAL NVS. This is the critical step.
+  // STEP 3 â€” Commit new theme to REAL NVS. This is the critical step.
   saveThemeToNVS(newTheme);
   feedWatchdog();
   
@@ -4113,18 +4121,18 @@ static void applyThemeAndReboot(ThemeType newTheme) {
   setTheme(newTheme);
   feedWatchdog();
   
-  // STEP 4 — Play character-specific transition animation.
+  // STEP 4 â€” Play character-specific transition animation.
   playThemeTransition(newTheme);
   feedWatchdog();
   
-  // STEP 5 — Guarantee NVS flush.
-  Serial.printf("[THEME] Theme %d committed to NVS — rebooting...\n",
+  // STEP 5 â€” Guarantee NVS flush.
+  Serial.printf("[THEME] Theme %d committed to NVS â€” rebooting...\n",
                 (int)newTheme);
   Serial.flush();
   delay(300);
   feedWatchdog();
   
-  // STEP 6 — Reboot. On boot, setup() calls loadThemeFromNVS() FIRST and
+  // STEP 6 â€” Reboot. On boot, setup() calls loadThemeFromNVS() FIRST and
   //          every screen is reinitialised with the new character.
   ESP.restart();
 }
@@ -4159,7 +4167,7 @@ void handleThemeSelectorTouch(TouchGesture& gesture) {
   //
   // The previous version used row spacing 105 for hit-testing while
   // drawing used 100. That offset caused taps on the lower rows to miss
-  // every card — so "nothing switched". Fixed here to use 100.
+  // every card â€” so "nothing switched". Fixed here to use 100.
   const int CARD_W = 155;
   const int CARD_H = 85;
   const int ROW_SPACING = 100;
