@@ -17,7 +17,7 @@ lv_obj_t* screen_objects[LVGL_SCREEN_COUNT] = {nullptr};
 bool initializeDisplay() {
   Serial.println("[Display] Initializing CO5300 AMOLED (2.06\" board)...");
   gfx->begin();
-  gfx->setBrightness(255);
+  gfx->setBrightness(160); // FIXED: Brownout protection
   delay(100);
   gfx->fillScreen(0x0000);
   Serial.println("[Display] Ready");

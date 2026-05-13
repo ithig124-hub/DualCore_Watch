@@ -400,6 +400,7 @@ void playThemeTransition(ThemeType theme) {
       
       // Purple mist effect rising from bottom
       for (int y = LCD_HEIGHT; y > centerY - 50; y -= 15) {
+          feedWatchdog();
         for (int x = 0; x < LCD_WIDTH; x += 20) {
           int size = random(5, 15);
           gfx->fillCircle(x + random(-10, 10), y, size, JINWOO_MIST_PURPLE);
@@ -413,6 +414,7 @@ void playThemeTransition(ThemeType theme) {
       gfx->setTextSize(5);
       const char* arise = "ARISE";
       for (int i = 0; i < 5; i++) {
+          feedWatchdog();
         gfx->setCursor(60 + i * 50, centerY - 30);
         gfx->print(arise[i]);
         delay(150);
@@ -433,6 +435,7 @@ void playThemeTransition(ThemeType theme) {
       
       // Sun rays effect
       for (int r = 0; r < 300; r += 20) {
+          feedWatchdog();
         gfx->drawCircle(centerX, centerY, r, LUFFY_SUN_GOLD);
         delay(30);
       }
@@ -472,6 +475,7 @@ void playThemeTransition(ThemeType theme) {
       
       // Flash through all element colors
       for (int i = 0; i < 7; i++) {
+          feedWatchdog();
         gfx->fillScreen(elementColors[i]);
         delay(80);
       }
@@ -502,6 +506,7 @@ void playThemeTransition(ThemeType theme) {
       // Naruto: Orange chakra swirl
       gfx->fillScreen(COLOR_BLACK);
       for (int r = 0; r < 250; r += 10) {
+          feedWatchdog();
         float angle = r * 0.1;
         int sx = centerX + cos(angle) * r/2;
         int sy = centerY + sin(angle) * r/2;
@@ -524,6 +529,7 @@ void playThemeTransition(ThemeType theme) {
       gfx->fillScreen(COLOR_BLACK);
       for (int pulse = 0; pulse < 3; pulse++) {
         for (int r = 50; r < 200; r += 30) {
+            feedWatchdog();
           gfx->drawCircle(centerX, centerY, r, GOKU_UI_SILVER);
           gfx->drawCircle(centerX, centerY, r+1, GOKU_UI_SILVER);
           delay(30);
@@ -547,6 +553,7 @@ void playThemeTransition(ThemeType theme) {
       gfx->fillScreen(COLOR_BLACK);
       if (!system_state.is_aod_mode) {
     for (int i = 0; i < 15; i++) {
+        feedWatchdog();
         int x = random(0, LCD_WIDTH);
         int y = LCD_HEIGHT - random(50, 200);
         int size = random(20, 60);
@@ -585,6 +592,7 @@ void playThemeTransition(ThemeType theme) {
       
       // Domain EXPANDING outward from center - the void opening up
       for (int r = 10; r < 350; r += 15) {
+          feedWatchdog();
         // Multiple expanding rings creating the infinite void effect
         gfx->drawCircle(centerX, centerY, r, GOJO_HOLLOW_PURPLE);
         gfx->drawCircle(centerX, centerY, r + 2, GOJO_INFINITY_BLUE);
@@ -617,6 +625,7 @@ void playThemeTransition(ThemeType theme) {
       
       // Final expansion flash
       for (int r = 0; r < 300; r += 50) {
+          feedWatchdog();
         gfx->drawCircle(centerX, centerY, r, COLOR_WHITE);
         delay(20);
       }
@@ -630,6 +639,7 @@ void playThemeTransition(ThemeType theme) {
       // Levi: Spinning blade slashes
       gfx->fillScreen(LEVI_CHARCOAL_DARK);
       for (int i = 0; i < 8; i++) {
+          feedWatchdog();
         float angle = i * PI / 4;
         int x1 = centerX + cos(angle) * 20;
         int y1 = centerY + sin(angle) * 20;
@@ -662,6 +672,7 @@ void playThemeTransition(ThemeType theme) {
       delay(600);
       // Punch impact
       for (int r = 10; r < 300; r += 40) {
+          feedWatchdog();
         gfx->drawCircle(centerX, centerY, r, COLOR_WHITE);
         delay(30);
       }
@@ -675,6 +686,7 @@ void playThemeTransition(ThemeType theme) {
       // Deku: Lightning crackling + PLUS ULTRA
       gfx->fillScreen(DEKU_DARK_HERO);
       for (int i = 0; i < 12; i++) {
+          feedWatchdog();
         int x1 = random(50, LCD_WIDTH - 50);
         int y1 = random(50, LCD_HEIGHT - 50);
         for (int j = 0; j < 4; j++) {
@@ -849,6 +861,7 @@ void drawLuffyWatchFace() {
   if (!system_state.is_aod_mode) {
     // === AMBIENT SUN GLOW ===
   for (int r = 180; r > 0; r -= 4) {
+      feedWatchdog();
     uint8_t alpha = map(r, 0, 180, 35, 0);
     gfx->drawCircle(centerX, centerY - 20, r, RGB565(alpha, alpha/3, 0));
   }
@@ -887,6 +900,7 @@ void drawLuffyWatchFace() {
     // Seconds arc - larger radius for bigger display
   float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
+      feedWatchdog();
     int sx = centerX + cos(a) * 160;
     int sy = centerY - 10 + sin(a) * 70;
     gfx->fillCircle(sx, sy, 3, LUFFY_ENERGY_ORANGE);
@@ -1002,11 +1016,13 @@ void drawJinwooWatchFace() {
   static bool initialized = false;
   if (!initialized) {
     for (int i = 0; i < 15; i++) particleY[i] = random(0, LCD_HEIGHT);
+        feedWatchdog();
     initialized = true;
   }
   
   if (!system_state.is_aod_mode) {
     for (int i = 0; i < 15; i++) {
+        feedWatchdog();
     particleY[i] = (particleY[i] - 1 + LCD_HEIGHT) % LCD_HEIGHT;
     int px = 25 + (i * 25) % (LCD_WIDTH - 50);
     int size = 2 + (i % 3);
@@ -1020,6 +1036,7 @@ void drawJinwooWatchFace() {
   for (int ring = 0; ring < 3; ring++) {
     int r = 120 + ring * 25;
     for (int i = 0; i < 6; i++) {
+        feedWatchdog();
       float a1 = (i * 60) * PI / 180.0;
       float a2 = ((i + 1) * 60) * PI / 180.0;
       int x1 = centerX + cos(a1) * r;
@@ -1065,6 +1082,7 @@ void drawJinwooWatchFace() {
   int ariseY = 270;
   int badgeW = 140;
   for (int i = 2; i >= 0; i--) {
+      feedWatchdog();
     gfx->fillRect(centerX - badgeW/2 - i*2, ariseY - i, badgeW + i*4, 35 + i,
                        RGB565(20 + i*8, 10 + i*4, 40 + i*12));
   }
@@ -1181,6 +1199,7 @@ void drawYugoWatchFace() {
     // Seconds arc - portal energy ring
   float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
+      feedWatchdog();
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
     gfx->fillCircle(sx, sy, 3, YUGO_PORTAL_CYAN);
@@ -1297,6 +1316,7 @@ void drawNarutoWatchFace() {
   // Chakra arc - seconds progress
   float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
+      feedWatchdog();
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
     gfx->fillCircle(sx, sy, 3, NARUTO_CHAKRA_ORANGE);
@@ -1411,6 +1431,7 @@ void drawGokuWatchFace() {
   drawGokuSpeedLines();
   float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
+      feedWatchdog();
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
     gfx->fillCircle(sx, sy, 3, GOKU_UI_SILVER);
@@ -1524,6 +1545,7 @@ void drawTanjiroWatchFace() {
   // Flame arc
   float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
+      feedWatchdog();
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
     gfx->fillCircle(sx, sy, 3, TANJIRO_FIRE_ORANGE);
@@ -1640,6 +1662,7 @@ void drawGojoWatchFace() {
   // Infinity arc
   float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
+      feedWatchdog();
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
     gfx->fillCircle(sx, sy, 3, GOJO_INFINITY_BLUE);
@@ -1758,6 +1781,7 @@ void drawLeviWatchFace() {
   // Steel arc
   float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
+      feedWatchdog();
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
     gfx->fillCircle(sx, sy, 3, LEVI_SILVER_BLADE);
@@ -1873,6 +1897,7 @@ void drawSaitamaWatchFace() {
   // Impact arc
   float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
+      feedWatchdog();
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
     gfx->fillCircle(sx, sy, 3, SAITAMA_HERO_YELLOW);
@@ -1986,6 +2011,7 @@ void drawDekuWatchFace() {
   // Lightning arc
   float secAngle = (watch_time.second / 60.0) * 2 * PI - PI/2;
   for (float a = -PI/2; a < secAngle; a += 0.04) {
+      feedWatchdog();
     int sx = centerX + cos(a) * 145;
     int sy = centerY - 20 + sin(a) * 55;
     gfx->fillCircle(sx, sy, 3, DEKU_OFA_LIGHTNING);
@@ -2199,6 +2225,7 @@ void drawBoboiboyWatchFace() {
   
   // Banner background with gradient effect
   for (int i = 0; i < bannerH; i++) {
+      feedWatchdog();
     uint8_t alpha = map(i, 0, bannerH, 40, 15);
     gfx->drawLine(20, bannerY + i, LCD_WIDTH - 20, bannerY + i, 
                   RGB565(alpha, alpha + 5, alpha + 10));
@@ -2240,6 +2267,7 @@ void drawBoboiboyWatchFace() {
   
   // Draw 7 element icons horizontally
   for (int i = 0; i < 7; i++) {
+      feedWatchdog();
     int iconX = barStartX + (i * (iconSize + iconGap));
     int iconY = barY + (barH - iconSize) / 2;
     
@@ -2359,6 +2387,7 @@ void drawYugoPortals() {
 void drawYugoPortalEffects() {
   // Left portal with multiple rings
   for (int r = 30; r <= 45; r += 5) {
+      feedWatchdog();
     gfx->drawCircle(70, 100, r, YUGO_PORTAL_CYAN);
   }
   gfx->fillCircle(70, 100, 20, RGB565(20, 60, 70));
@@ -2366,6 +2395,7 @@ void drawYugoPortalEffects() {
   
   // Right portal
   for (int r = 30; r <= 45; r += 5) {
+      feedWatchdog();
     gfx->drawCircle(LCD_WIDTH - 70, 100, r, YUGO_PORTAL_CYAN);
   }
   gfx->fillCircle(LCD_WIDTH - 70, 100, 20, RGB565(20, 60, 70));
@@ -2376,6 +2406,7 @@ void drawNarutoSageAura() {
   int cx = LCD_WIDTH / 2;
   int cy = LCD_HEIGHT / 2 - 60;
   for (int r = 70; r < 95; r += 5) {
+      feedWatchdog();
     gfx->drawCircle(cx, cy, r, NARUTO_CHAKRA_ORANGE);
   }
 }
@@ -2385,6 +2416,7 @@ void drawNarutoSageAuraEnhanced() {
   int cy = 120;
   // Chakra aura with gradient effect
   for (int r = 50; r < 85; r += 4) {
+      feedWatchdog();
     uint8_t alpha = map(r, 50, 85, 40, 15);
     gfx->drawCircle(cx, cy, r, RGB565(alpha * 3, alpha, 0));
   }
@@ -2397,6 +2429,7 @@ void drawGokuUIAura() {
   int cx = LCD_WIDTH / 2;
   int cy = 140;
   for (int r = 60; r < 85; r += 4) {
+      feedWatchdog();
     gfx->drawCircle(cx, cy, r, GOKU_SILVER_GLOW);
   }
 }
@@ -2406,6 +2439,7 @@ void drawGokuUIAuraEnhanced() {
   int cy = 120;
   // Silver divine aura
   for (int r = 45; r < 80; r += 3) {
+      feedWatchdog();
     uint8_t alpha = map(r, 45, 80, 50, 15);
     gfx->drawCircle(cx, cy, r, RGB565(alpha, alpha + 5, alpha + 10));
   }
@@ -2415,6 +2449,7 @@ void drawGokuUIAuraEnhanced() {
 
 void drawGokuSpeedLines() {
   for (int i = 0; i < 12; i++) {
+      feedWatchdog();
     int x = random(0, LCD_WIDTH);
     int y1 = random(50, 160);
     gfx->drawLine(x, y1, x + random(-8, 8), y1 + random(25, 50), GOKU_SPEED_LINES);
@@ -2423,6 +2458,7 @@ void drawGokuSpeedLines() {
 
 void drawTanjiroSunFlames() {
   for (int i = 0; i < 8; i++) {
+      feedWatchdog();
     int x = 40 + i * 45;
     int y = 85;
     gfx->fillTriangle(x, y, x - 12, y + 30, x + 12, y + 30, TANJIRO_FLAME_GLOW);
@@ -2432,6 +2468,7 @@ void drawTanjiroSunFlames() {
 void drawTanjiroSunFlamesEnhanced() {
   // Sun flames across the top
   for (int i = 0; i < 9; i++) {
+      feedWatchdog();
     int x = 30 + i * 42;
     int y = 75;
     int h = 25 + (i % 2) * 10;
@@ -2446,6 +2483,7 @@ void drawGojoInfinityAura() {
   int cx = LCD_WIDTH / 2;
   int cy = 140;
   for (int r = 50; r < 80; r += 5) {
+      feedWatchdog();
     gfx->drawCircle(cx, cy, r, GOJO_INFINITY_BLUE);
   }
 }
@@ -2455,6 +2493,7 @@ void drawGojoInfinityAuraEnhanced() {
   int cy = 120;
   // Infinity void effect
   for (int r = 40; r < 75; r += 3) {
+      feedWatchdog();
     uint8_t alpha = map(r, 40, 75, 60, 15);
     gfx->drawCircle(cx, cy, r, RGB565(alpha/3, alpha/2, alpha));
   }
@@ -2513,6 +2552,7 @@ void drawSaitamaImpactLines() {
   int cx = LCD_WIDTH / 2;
   int cy = 160;
   for (int i = 0; i < 16; i++) {
+      feedWatchdog();
     float angle = (i * 22.5) * PI / 180.0;
     int x1 = cx + cos(angle) * 60;
     int y1 = cy + sin(angle) * 30;
@@ -2524,6 +2564,7 @@ void drawSaitamaImpactLines() {
 
 void drawDekuOFALightning() {
   for (int i = 0; i < 7; i++) {
+      feedWatchdog();
     int x1 = random(35, LCD_WIDTH - 35);
     int y1 = random(55, 110);
     gfx->drawLine(x1, y1, x1 + random(-25, 25), y1 + random(25, 50), DEKU_OFA_LIGHTNING);
@@ -2533,6 +2574,7 @@ void drawDekuOFALightning() {
 void drawDekuOFALightningEnhanced() {
   // Full Cowl lightning effect around the screen
   for (int i = 0; i < 10; i++) {
+      feedWatchdog();
     int x1 = 30 + (i * 38);
     int y1 = 70 + (i % 3) * 15;
     // Main bolt
@@ -2552,6 +2594,7 @@ void drawActivityRing(int centerX, int centerY, int radius, float progress, uint
   
   // Background ring
   for (int i = 0; i < 360; i += 3) {
+      feedWatchdog();
     float a = i * PI / 180.0 - PI/2;
     int px = centerX + cos(a) * radius;
     int py = centerY + sin(a) * radius;
@@ -2561,6 +2604,7 @@ void drawActivityRing(int centerX, int centerY, int radius, float progress, uint
   // Progress arc
   int progressDeg = progress * 360;
   for (int i = 0; i < progressDeg; i += 3) {
+      feedWatchdog();
     float a = i * PI / 180.0 - PI/2;
     int px = centerX + cos(a) * radius;
     int py = centerY + sin(a) * radius;
@@ -2803,6 +2847,7 @@ void drawCharacterStatsScreen() {
   
   // Subtle theme gradient at top
   for (int y = 0; y < 100; y++) {
+      feedWatchdog();
     uint8_t r = (theme->primary >> 11) << 3;
     uint8_t g = ((theme->primary >> 5) & 0x3F) << 2;
     uint8_t b = (theme->primary & 0x1F) << 3;
@@ -3514,6 +3559,7 @@ void drawProgressionScreen() {
   
   gfx->fillScreen(RGB565(2, 2, 5));
   for (int y = 0; y < LCD_HEIGHT; y += 4) {
+      feedWatchdog();
     gfx->drawFastHLine(0, y, LCD_WIDTH, RGB565(4, 4, 7));
   }
   
@@ -3597,6 +3643,7 @@ switch(system_state.current_theme) {
 }
   // Update unlock status based on level
   for (int i = 0; i < title_count; i++) {
+      feedWatchdog();
     titles[i].unlocked = (system_state.player_level >= titles[i].level_req);
   }
   
@@ -3617,6 +3664,7 @@ switch(system_state.current_theme) {
   // Count unlocked titles
   int unlockedCount = 0;
   for (int i = 0; i < title_count; i++) {
+      feedWatchdog();
     if (titles[i].unlocked) unlockedCount++;
   }
   
@@ -3628,6 +3676,7 @@ switch(system_state.current_theme) {
   // Draw title cards (4 visible at a time)
   int startIdx = progression_scroll * 4;
   for (int i = 0; i < 4; i++) {
+      feedWatchdog();
     int idx = startIdx + i;
     if (idx >= title_count) break;
     
@@ -3783,6 +3832,7 @@ void handleProgressionTouch(TouchGesture& gesture) {
     int cardSpacing = 100;
     
     for (int i = 0; i < 4; i++) {
+        feedWatchdog();
       int cardY = cardStartY + (i * cardSpacing);
       
       // Check if tap is within this card's Y bounds
@@ -3889,6 +3939,7 @@ void drawThemeSelector() {
   // ========================================
   gfx->fillScreen(RGB565(2, 2, 5));
   for (int y = 0; y < LCD_HEIGHT; y += 4) {
+      feedWatchdog();
     gfx->drawFastHLine(0, y, LCD_WIDTH, RGB565(4, 4, 7));
   }
   
@@ -3914,6 +3965,7 @@ void drawThemeSelector() {
                              &naruto_sage_theme, &goku_ui_theme, &tanjiro_sun_theme};
     
     for (int i = 0; i < 6; i++) {
+        feedWatchdog();
       int x = (i % 2) * 170 + 15;
       int y = (i / 2) * 100 + 52;
       
@@ -3949,6 +4001,7 @@ void drawThemeSelector() {
                          THEME_SAITAMA_OPM, THEME_DEKU_PLUSULTRA, THEME_BOBOIBOY};
     
     for (int i = 0; i < 5; i++) {
+        feedWatchdog();
       int col = i % 2;
       int row = i / 2;
       int x = col * 170 + 15;
@@ -4176,6 +4229,7 @@ void handleThemeSelectorTouch(TouchGesture& gesture) {
   
   if (themePageState == 0) {
     for (int i = 0; i < 6; i++) {
+        feedWatchdog();
       int tx = (i % 2) * 170 + 15;
       int ty = (i / 2) * ROW_SPACING + TOP_Y;
       if (x >= tx && x < tx + CARD_W && y >= ty && y < ty + CARD_H) {
@@ -4188,6 +4242,7 @@ void handleThemeSelectorTouch(TouchGesture& gesture) {
     ThemeType types[] = {THEME_GOJO_INFINITY, THEME_LEVI_STRONGEST, 
                          THEME_SAITAMA_OPM, THEME_DEKU_PLUSULTRA, THEME_BOBOIBOY};
     for (int i = 0; i < 5; i++) {
+        feedWatchdog();
       int col = i % 2;
       int row = i / 2;
       int tx = col * 170 + 15;
@@ -4228,6 +4283,7 @@ void showTitleSelectionPopup() {
   // Count total unlocked titles
   int total_unlocked = 0;
   for (int i = 0; i < MAX_TITLES_PER_CHARACTER; i++) {
+      feedWatchdog();
     if (char_xp->titles[i].unlocked) total_unlocked++;
   }
   
@@ -4267,6 +4323,7 @@ void showTitleSelectionPopup() {
   int skip_count = 0;
   
   for (int i = 0; i < MAX_TITLES_PER_CHARACTER && displayed_count < TITLES_PER_PAGE; i++) {
+      feedWatchdog();
     if (char_xp->titles[i].unlocked) {
       // Skip titles before scroll offset
       if (skip_count < title_scroll_offset) {
@@ -4362,6 +4419,7 @@ void equipTitleBySlot(int slot) {
   int count = 0;
   
   for (int i = 0; i < MAX_TITLES_PER_CHARACTER; i++) {
+      feedWatchdog();
     if (char_xp->titles[i].unlocked) {
       if (count == slot) {
         unlocked_index = i;
@@ -4388,6 +4446,7 @@ void handleTitleSelectionSwipe(int dy) {
   // Count total unlocked titles
   int total_unlocked = 0;
   for (int i = 0; i < MAX_TITLES_PER_CHARACTER; i++) {
+      feedWatchdog();
     if (char_xp->titles[i].unlocked) total_unlocked++;
   }
   

@@ -72,7 +72,7 @@
 #define PWR_BUTTON               10      // Power button GPIO (CHANGED from 0)
 #define BUTTON_DEBOUNCE_MS      50      // Button debounce time
 #define SCREEN_OFF_TIMEOUT_MS   5000    // 5 seconds to turn screen off (CHANGED from 3000)
-#define WATCHDOG_TIMEOUT_SEC    10      // Watchdog timeout in seconds
+#define WATCHDOG_TIMEOUT_SEC    20      // Watchdog timeout in seconds
 #define BOOT_PANIC_THRESHOLD    3       // Skip WiFi after N consecutive WDT panics
 
 // =============================================================================
@@ -1133,10 +1133,14 @@ void loadAllGameData() {
 
 void saveAllData() {
   saveAllGameData();
+  feedWatchdog();
   saveGachaProgress();
+  feedWatchdog();
   saveGameProgress();
+  feedWatchdog();
   saveTrainingProgress();
   saveBossProgress();
+  feedWatchdog();
   saveXPData();
   saveStepsData();
   saveStoryProgress();
@@ -1144,8 +1148,11 @@ void saveAllData() {
   // Also save to SD card if available
   if (sdCardInitialized) {
     savePlayerDataToSD();
+  feedWatchdog();
     saveGachaDataToSD();
+  feedWatchdog();
     saveBossDataToSD();
+  feedWatchdog();
   }
   
   Serial.println("[SAVE] All data saved (SD Card Fusion Data)");
