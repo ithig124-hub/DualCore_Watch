@@ -97,6 +97,7 @@ struct StandbyInfo {
     uint32_t           entered_state_ms;
     bool               enabled;
     bool               aggressive_mode;
+    bool               aod_enabled;        // AOD step in standby path (default OFF)
 };
 
 extern StandbyInfo standby;
@@ -115,6 +116,8 @@ void standbyRecordInteraction();
 void standbyEnable(bool on);
 bool standbyIsEnabled();
 void standbySetAggressive(bool on);
+void standbySetAODEnabled(bool on);   // AOD step on/off (default OFF at boot)
+bool standbyIsAODEnabled();
 void standbyEnterDeepSleepNow();
 StandbyState      standbyGetState();
 const char*       standbyGetStateName(StandbyState s);

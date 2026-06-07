@@ -57,8 +57,9 @@ StandbyInfo standby = {
     .last_wake            = WAKE_NONE,
     .last_interaction_ms  = 0,
     .entered_state_ms     = 0,
-    .enabled              = true,
-    .aggressive_mode      = false
+    .enabled              = false,   // Standby system OFF by default (AOD off too)
+    .aggressive_mode      = false,
+    .aod_enabled          = false    // AOD step OFF by default
 };
 
 // Cached user brightness (so we can restore on wake without "Settings only" rule)
@@ -437,7 +438,14 @@ void standbyTick() {
         }
 
         case STANDBY_IDLE: {
-            if (idle >= STANDBY_AOD_AFTER_MS) enterAOD();
+            if (idle >= STANDBY_DEEP_AFTER_MS) {
+                // AOD disabled (default) -> IDLE goes straight to DEEP.
+                enterDeep();
+                return;
+            }
+            if (standby.aod_enabled && idle >= STANDBY_AOD_AFTER_MS) {
+                enterAOD();
+            }
             break;
         }
 
@@ -487,6 +495,16 @@ void standbyEnable(bool on) {
 
 bool standbyIsEnabled()               { return standby.enabled; }
 void standbySetAggressive(bool on)    { standby.aggressive_mode = on; }
+void standbySetAODEnabled(bool on)    {
+    standby.aod_enabled = on;
+    Serial.printf("[STANDBY] aod_enabled=%d\n", on);
+    // If we're already sitting in AOD and the user just turned it off,
+    // bounce back to ACTIVE so we don't keep rendering the dim watchface.
+    if (!on && standby.state == STANDBY_AOD) {
+        enterActive(WAKE_OTHER);
+    }
+}
+bool standbyIsAODEnabled()            { return standby.aod_enabled; }
 void standbyEnterDeepSleepNow()       { enterDeep(); }
 StandbyState      standbyGetState()   { return standby.state; }
 StandbyWakeReason standbyGetLastWake(){ return standby.last_wake; }
